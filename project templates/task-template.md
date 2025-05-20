@@ -39,6 +39,20 @@
 ### 3. [Third Step]
 [Description of the third implementation step]
 
+## Subtasks Checklist
+- [ ] **Subtask 1**: [Brief description of subtask]
+  - [ ] Subtask 1.1: [Detailed action item]
+  - [ ] Subtask 1.2: [Detailed action item]
+  - [ ] Subtask 1.3: [Detailed action item]
+- [ ] **Subtask 2**: [Brief description of subtask]
+  - [ ] Subtask 2.1: [Detailed action item]
+  - [ ] Subtask 2.2: [Detailed action item]
+- [ ] **Subtask 3**: [Brief description of subtask]
+  - [ ] Subtask 3.1: [Detailed action item]
+  - [ ] Subtask 3.2: [Detailed action item]
+  - [ ] Subtask 3.3: [Detailed action item]
+  - [ ] Subtask 3.4: [Detailed action item]
+
 ## Dependencies
 ### Required By This Task
 - [Task ID] - [Task Title] - [Status]
