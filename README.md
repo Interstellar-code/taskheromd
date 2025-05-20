@@ -1,4 +1,4 @@
-# SubsHero Task Management System
+# Taskhero Task Management System
 
 This folder contains a simple Markdown-based task management system for the SubsHero project.
 
