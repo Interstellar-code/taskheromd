@@ -4,7 +4,7 @@
 - **Created:** 2025-05-21
 - **Due:** 2025-06-05
 - **Priority:** Medium
-- **Status:** InProgress
+- **Status:** Done
 - **Assigned to:** Developer
 - **Sequence:** 2
 - **Tags:** test, sample, inprogress
@@ -42,3 +42,4 @@ This task is created solely for testing purposes to verify that the Kanban board
 ## Updates
 - 2025-05-21 - Task created for testing
 - 2025-05-22 - First step completed
+

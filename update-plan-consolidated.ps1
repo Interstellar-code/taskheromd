@@ -1011,6 +1011,159 @@ function Get-TaskList {
     return $FilteredTasks
 }
 
+# Function to update task status and move to appropriate folder
+function Set-TaskStatus {
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]$TaskID,
+
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("Todo", "InProgress", "Done")]
+        [string]$NewStatus
+    )
+
+    # Initialize required folders
+    Initialize-RequiredFolders
+
+    # Define folder paths
+    $TodoPath = "project planning/todo"
+    $InProgressPath = "project planning/inprogress"
+    $DonePath = "project planning/done"
+
+    # Find the task file across all folders
+    $TaskFile = $null
+    $AllFolders = @($TodoPath, $InProgressPath, $DonePath)
+
+    foreach ($Folder in $AllFolders) {
+        $PotentialFile = Get-ChildItem -Path $Folder -Filter "$TaskID*.md" -ErrorAction SilentlyContinue
+        if ($PotentialFile) {
+            $TaskFile = $PotentialFile
+            break
+        }
+    }
+
+    if (-not $TaskFile) {
+        Write-Error "Task $TaskID not found in any folder."
+        return $false
+    }
+
+    try {
+        # Read the task content
+        $TaskContent = Get-Content -Path $TaskFile.FullName -Raw -ErrorAction Stop
+
+        # Update the status in the content
+        $UpdatedContent = $TaskContent -replace "- \*\*Status:\*\* (?:Todo|InProgress|Done)", "- **Status:** $NewStatus"
+
+        # Determine the target folder based on the new status
+        $TargetFolder = switch ($NewStatus) {
+            "Todo" { $TodoPath }
+            "InProgress" { $InProgressPath }
+            "Done" { $DonePath }
+        }
+
+        # Create the target path
+        $TargetPath = Join-Path -Path $TargetFolder -ChildPath $TaskFile.Name
+
+        # Write the updated content to the file
+        Set-Content -Path $TaskFile.FullName -Value $UpdatedContent -ErrorAction Stop
+
+        # Move the file to the appropriate folder if it's not already there
+        if ($TaskFile.DirectoryName -ne (Resolve-Path $TargetFolder).Path) {
+            Move-Item -Path $TaskFile.FullName -Destination $TargetPath -Force -ErrorAction Stop
+            if (-not $Silent) {
+                Write-Host "Task $TaskID moved to $TargetFolder" -ForegroundColor Green
+            }
+        }
+
+        # Update the plan.md file
+        Update-PlanFile
+
+        if (-not $Silent) {
+            Write-Host "Task $TaskID status updated to $NewStatus" -ForegroundColor Green
+        }
+
+        return $true
+    }
+    catch {
+        Write-Error "Failed to update task status: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+# Function to display task selection menu and update status
+function Update-TaskMenu {
+    param (
+        [ValidateSet("Todo", "InProgress", "Done")]
+        [string]$TargetStatus
+    )
+
+    Clear-Host
+
+    # Get all tasks
+    $AllTasks = Get-TaskList
+
+    if ($AllTasks.Count -eq 0) {
+        Write-Host "No tasks found." -ForegroundColor Yellow
+        Read-Host "Press Enter to continue"
+        return
+    }
+
+    # Display tasks
+    Write-Host "Select a task to mark as $($TargetStatus):" -ForegroundColor Cyan
+    Write-Host "ID | Current Status | Title" -ForegroundColor Cyan
+    Write-Host "---------------------------" -ForegroundColor Cyan
+
+    foreach ($Task in $AllTasks) {
+        # Skip tasks that are already in the target status
+        if (($TargetStatus -eq "Todo" -and $Task.Status -eq $TaskStatusTodo) -or
+            ($TargetStatus -eq "InProgress" -and $Task.Status -eq $TaskStatusInProgress) -or
+            ($TargetStatus -eq "Done" -and $Task.Status -eq $TaskStatusDone)) {
+            continue
+        }
+
+        Write-Host "$($Task.ID) | $($Task.Status) | $($Task.Title)"
+    }
+
+    Write-Host "0 | Cancel and return to main menu" -ForegroundColor Yellow
+
+    # Get user selection
+    $SelectedTaskID = Read-Host "Enter task ID"
+
+    if ($SelectedTaskID -eq "0") {
+        return
+    }
+
+    # Validate the task ID
+    $SelectedTask = $AllTasks | Where-Object { $_.ID -eq $SelectedTaskID }
+
+    if (-not $SelectedTask) {
+        Write-Host "Invalid task ID. Please try again." -ForegroundColor Red
+        Read-Host "Press Enter to continue"
+        return
+    }
+
+    # Confirm the action
+    $Confirmation = Read-Host "Are you sure you want to change the status of task $SelectedTaskID to $($TargetStatus)? (y/n)"
+
+    if ($Confirmation -ne "y") {
+        Write-Host "Operation cancelled." -ForegroundColor Yellow
+        Read-Host "Press Enter to continue"
+        return
+    }
+
+    # Update the task status
+    $Result = Set-TaskStatus -TaskID $SelectedTaskID -NewStatus $TargetStatus
+
+    if ($Result) {
+        Write-Host "Task $SelectedTaskID status updated to $TargetStatus successfully." -ForegroundColor Green
+    }
+    else {
+        Write-Host "Failed to update task status." -ForegroundColor Red
+    }
+
+    Read-Host "Press Enter to continue"
+}
+
 # Function to display tasks in a formatted table
 function Show-TaskList {
     param (
@@ -1086,8 +1239,11 @@ function Show-Menu {
     Write-Host "4: List open tasks (Todo + In Progress)" -ForegroundColor White
     Write-Host "5: List tasks by status" -ForegroundColor White
     Write-Host "6: List tasks by assignee" -ForegroundColor White
-    Write-Host "7: Reset project (archive all tasks)" -ForegroundColor Red
-    Write-Host "8: Exit" -ForegroundColor White
+    Write-Host "7: Mark task as done" -ForegroundColor Green
+    Write-Host "8: Move task to in-progress" -ForegroundColor Yellow
+    Write-Host "9: Move task to todo" -ForegroundColor Blue
+    Write-Host "10: Reset project (archive all tasks)" -ForegroundColor Red
+    Write-Host "11: Exit" -ForegroundColor White
     Write-Host "=======================================" -ForegroundColor Cyan
 }
 
@@ -1178,10 +1334,22 @@ while (-not $exitLoop) {
             Read-Host "Press Enter to continue"
         }
         "7" {
+            # Mark task as done
+            Update-TaskMenu -TargetStatus "Done"
+        }
+        "8" {
+            # Move task to in-progress
+            Update-TaskMenu -TargetStatus "InProgress"
+        }
+        "9" {
+            # Move task to todo
+            Update-TaskMenu -TargetStatus "Todo"
+        }
+        "10" {
             Reset-ProjectTasks # This will prompt if -Force is not used, which is fine for interactive
             Read-Host "Press Enter to continue"
         }
-        "8" {
+        "11" {
             $exitLoop = $true
         }
         default {

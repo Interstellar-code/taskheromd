@@ -4,7 +4,7 @@
 - **Created:** 2025-05-21
 - **Due:** 2025-06-01
 - **Priority:** High
-- **Status:** Todo
+- **Status:** InProgress
 - **Assigned to:** Developer
 - **Sequence:** 1
 - **Tags:** test, sample
@@ -41,3 +41,4 @@ This task is created solely for testing purposes to verify that the Kanban board
 
 ## Updates
 - 2025-05-21 - Task created for testing
+
