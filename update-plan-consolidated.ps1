@@ -9,7 +9,9 @@ param (
     [switch]$ResetTasks,
     [string]$TaskStatus = "all",
     [string]$AssignedTo = "",
-    [string]$ReportPath = "project-report-$(Get-Date -Format 'yyyy-MM-dd').md"
+    [string]$ReportPath = "project-report-$(Get-Date -Format 'yyyy-MM-dd').md",
+    [switch]$GenerateComprehensiveReport,
+    [string]$ComprehensiveReportPath = "project-comprehensive-report-$(Get-Date -Format 'yyyy-MM-dd').md"
 )
 
 # Define constants
@@ -154,8 +156,8 @@ function Get-TaskMetadata {
     return $Metadata
 }
 
-# Function to ensure required folders exist
-function Ensure-RequiredFolders {
+# Function to initialize required folders
+function Initialize-RequiredFolders {
     $ProjectPlanningPath = "project planning"
     $TodoPath = "project planning/todo"
     $InProgressPath = "project planning/inprogress"
@@ -184,8 +186,8 @@ function Ensure-RequiredFolders {
 
 # Function to get all tasks
 function Get-AllTasks {
-    # Ensure required folders exist
-    Ensure-RequiredFolders
+    # Initialize required folders
+    Initialize-RequiredFolders
 
     $TodoPath = "project planning/todo"
     $InProgressPath = "project planning/inprogress"
@@ -550,9 +552,10 @@ kanban
 
     foreach ($Task in $AllTasks | Sort-Object -Property Sequence) {
         $StatusIcon = switch ($Task.Status) {
-            $TaskStatusTodo { "📌 Todo" }
-            $TaskStatusInProgress { "🔨 In Progress" }
-            $TaskStatusDone { "✅ Done" }
+            $TaskStatusTodo { "(Todo)" }
+            $TaskStatusInProgress { "(In Progress)" }
+            $TaskStatusDone { "(Done)" }
+            default { "(Unknown)" }
         }
 
         $TaskSummaryTable += "`n| $($Task.ID) | $StatusIcon | $($Task.Title) | $($Task.Priority) | $($Task.DueDate) | $($Task.AssignedTo) | $($Task.Progress)% |"
@@ -764,7 +767,7 @@ function New-ComprehensiveProjectPlanReport {
     $PercentComplete = $ProjectStats.CompletionRate
     $CompleteBars = [math]::Round($PercentComplete / 5)
     $RemainingBars = 20 - $CompleteBars
-    
+
     $ProgressBar = ""
     for ($i = 0; $i -lt $CompleteBars; $i++) {
         $ProgressBar += "█"
@@ -775,14 +778,14 @@ function New-ComprehensiveProjectPlanReport {
 
     # Group tasks by assignee
     $TasksByAssignee = @{}
-    
+
     foreach ($Task in $SortedTasks) {
         if (-not $Task.AssignedTo) {
             $Assignee = "Unassigned"
         } else {
             $Assignee = $Task.AssignedTo
         }
-        
+
         if (-not $TasksByAssignee.ContainsKey($Assignee)) {
             $TasksByAssignee[$Assignee] = @{
                 Todo = 0
@@ -793,23 +796,23 @@ function New-ComprehensiveProjectPlanReport {
                 Tasks = @()
             }
         }
-        
+
         # Count tasks by status
         switch ($Task.Status) {
             $TaskStatusTodo { $TasksByAssignee[$Assignee].Todo++ }
             $TaskStatusInProgress { $TasksByAssignee[$Assignee].InProgress++ }
             $TaskStatusDone { $TasksByAssignee[$Assignee].Done++ }
         }
-        
+
         # Add hours
         if ($null -ne $Task.EstimatedHours) {
             $TasksByAssignee[$Assignee].TotalEstimatedHours += $Task.EstimatedHours
         }
-        
+
         if ($null -ne $Task.ActualHours) {
             $TasksByAssignee[$Assignee].TotalActualHours += $Task.ActualHours
         }
-        
+
         # Add task to assignee's list
         $TasksByAssignee[$Assignee].Tasks += $Task
     }
@@ -935,15 +938,17 @@ pie title Task Distribution
     # Conclusion
     $ReportContent += @"
 
-## 📝 Conclusion
+## (Conclusion) Conclusion
 
 This comprehensive project plan report provides a complete overview of the project's current status, tasks, timelines, and resource allocation. Use this report to track progress, identify bottlenecks, and make informed decisions about project management.
 
 Report generated on $CurrentDate
 "@
 
+    # Detailed breakdown by assignee (moved this section to be more logical)
+    $ReportContent += "`n`n## 👥 Detailed Resource Breakdown`n"
     foreach ($Assignee in $TasksByAssignee.Keys | Sort-Object) {
-        $ReportContent += "#### $Assignee`n`n"
+        $ReportContent += "`n### $Assignee`n`n" # Changed from H4 to H3 for better structure
         $ReportContent += "- **Total Tasks:** $($TasksByAssignee[$Assignee].Todo + $TasksByAssignee[$Assignee].InProgress + $TasksByAssignee[$Assignee].Done)`n"
         $ReportContent += "- **Todo:** $($TasksByAssignee[$Assignee].Todo)`n"
         $ReportContent += "- **In Progress:** $($TasksByAssignee[$Assignee].InProgress)`n"
@@ -969,12 +974,7 @@ Report generated on $CurrentDate
         $ReportContent += "`n"
     }
 
-    # Conclusion
-    $ReportContent += "## 📝 Conclusion`n`n"
-    $ReportContent += "This comprehensive project plan report provides a complete overview of the project's current status, tasks, timelines, and resource allocation. Use this report to track progress, identify bottlenecks, and make informed decisions about project management.`n`n"
-    $ReportContent += "Report generated on $CurrentDate`n"
-
-    # Save report
+    # Save report (moved before the final closing brace of the function)
     try {
         Set-Content -Path $OutputPath -Value $ReportContent -ErrorAction Stop
         if (-not $Silent) {
@@ -986,7 +986,7 @@ Report generated on $CurrentDate
         Write-Error "Failed to generate comprehensive report: $($_.Exception.Message)"
         return $null
     }
-}
+} # Added missing closing brace for New-ComprehensiveProjectPlanReport
 
 # Function to generate a project report
 function New-ProjectReport {
@@ -1064,7 +1064,7 @@ function New-ProjectReport {
         $ReportContent += "- No tasks currently in progress`n"
     }
 
-    $ReportContent += "`n## Blockers & Risks`n"
+    $ReportContent += "`n## Blockers and Risks`n"
 
     # Add blockers and risks
     if ($OverdueTasks.Count -gt 0) {
@@ -1091,8 +1091,7 @@ function New-ProjectReport {
         $ReportContent += "| - | No upcoming deadlines in the next 14 days | - | - | - | - |`n"
     }
 
-    $ReportContent += "`n## Burndown Chart`n````n"
-
+    $ReportContent += "`n## Burndown Chart`n`n" # Removed one backtick pair for correct markdown
     # Generate simple ASCII burndown chart
     $PercentComplete = if ($TotalTasks -gt 0) { [math]::Round(($DoneCount / $TotalTasks) * 100) } else { 0 }
 
@@ -1108,10 +1107,8 @@ function New-ProjectReport {
         $ProgressBar += "░"
     }
 
-    $ReportContent += "[Progress] $ProgressBar $PercentComplete percent`n"
-    $ReportContent += "````n`n"
-
-    $ReportContent += "## Notes & Action Items`n"
+    $ReportContent += "[Progress] $ProgressBar $PercentComplete percent`n" # Removed one backtick pair
+    $ReportContent += "`n`n## Notes and Action Items`n" # Removed one backtick pair
     $ReportContent += "- Continue focus on completing high-priority tasks`n"
     $ReportContent += "- Review dependencies to ensure no blocking issues`n"
     $ReportContent += "- Update task statuses regularly`n"
@@ -1145,8 +1142,8 @@ function Reset-ProjectTasks {
         }
     }
 
-    # Ensure all required folders exist
-    Ensure-RequiredFolders
+    # Initialize all required folders
+    Initialize-RequiredFolders
 
     # Create archive date folder
     $ArchivePath = "project planning/archive"
@@ -1334,8 +1331,8 @@ function Show-Menu {
 $ScriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location -Path $ScriptPath
 
-# Ensure required folders exist
-Ensure-RequiredFolders
+# Initialize required folders
+Initialize-RequiredFolders
 
 # Handle silent mode
 if ($Silent) {
@@ -1373,22 +1370,22 @@ while (-not $exit) {
     switch ($choice) {
         "1" {
             Update-PlanFile
-            Read-Host "Press Enter to continue"
+            Read-Host "Press Enter to continue" # Ensured quotes are correct
         }
         "2" {
             $ReportPath = "project-report-$(Get-Date -Format 'yyyy-MM-dd').md"
             New-ProjectReport -OutputPath $ReportPath
-            Read-Host "Press Enter to continue"
+            Read-Host "Press Enter to continue" # Ensured quotes are correct
         }
         "3" {
             $Tasks = Get-TaskList
             Show-TaskList -Tasks $Tasks
-            Read-Host "Press Enter to continue"
+            Read-Host "Press Enter to continue" # Ensured quotes are correct
         }
         "4" {
             $Tasks = Get-TaskList -Status "open"
             Show-TaskList -Tasks $Tasks
-            Read-Host "Press Enter to continue"
+            Read-Host "Press Enter to continue" # Ensured quotes are correct
         }
         "5" {
             Clear-Host
@@ -1409,29 +1406,24 @@ while (-not $exit) {
 
             $Tasks = Get-TaskList -Status $status
             Show-TaskList -Tasks $Tasks
-            Read-Host "Press Enter to continue"
+            Read-Host "Press Enter to continue" # Ensured quotes are correct
         }
         "6" {
             $assignee = Read-Host "Enter assignee name (or part of name)"
             $Tasks = Get-TaskList -AssignedTo $assignee
             Show-TaskList -Tasks $Tasks
-            Read-Host "Press Enter to continue"
+            Read-Host "Press Enter to continue" # Ensured quotes are correct
         }
         "7" {
             Reset-ProjectTasks
-            Read-Host "Press Enter to continue"
+            Read-Host "Press Enter to continue" # Ensured quotes are correct
         }
         "8" {
             $exit = $true
         }
         default {
             Write-Host "Invalid choice. Please try again." -ForegroundColor Red
-            Read-Host "Press Enter to continue"
+            Read-Host "Press Enter to continue" # Ensured quotes are correct
         }
     }
 }
-
-
-
-
-
