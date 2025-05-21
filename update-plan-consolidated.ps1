@@ -319,10 +319,47 @@ function Get-ProjectStats {
     )
 
     $TotalTasks = $AllTasks.Count
+
+    # Debug output to check task statuses
+    if (-not $Silent) {
+        Write-Host "Debug - Task Status Check:" -ForegroundColor Cyan
+        foreach ($Task in $AllTasks) {
+            Write-Host "Task ID: $($Task.ID), Status: $($Task.Status)" -ForegroundColor Cyan
+        }
+    }
+
+    # Ensure we're using the correct status values
     $TodoCount = ($AllTasks | Where-Object { $_.Status -eq $TaskStatusTodo }).Count
     $InProgressCount = ($AllTasks | Where-Object { $_.Status -eq $TaskStatusInProgress }).Count
     $DoneCount = ($AllTasks | Where-Object { $_.Status -eq $TaskStatusDone }).Count
+
+    # Verify the counts add up to the total
+    $TotalStatusCount = $TodoCount + $InProgressCount + $DoneCount
+    if ($TotalStatusCount -ne $TotalTasks) {
+        Write-Warning "Task status counts ($TotalStatusCount) don't match total tasks ($TotalTasks). This may indicate a problem with task status values."
+        Write-Warning "Todo: $TodoCount, InProgress: $InProgressCount, Done: $DoneCount"
+
+        # Force recounting by folder location as a fallback
+        $TodoPath = "project planning/todo"
+        $InProgressPath = "project planning/inprogress"
+        $DonePath = "project planning/done"
+
+        $TodoCount = (Get-ChildItem -Path $TodoPath -Filter "TASK-*.md" -ErrorAction SilentlyContinue).Count
+        $InProgressCount = (Get-ChildItem -Path $InProgressPath -Filter "TASK-*.md" -ErrorAction SilentlyContinue).Count
+        $DoneCount = (Get-ChildItem -Path $DonePath -Filter "TASK-*.md" -ErrorAction SilentlyContinue).Count
+
+        Write-Host "Recounted by folder: Todo: $TodoCount, InProgress: $InProgressCount, Done: $DoneCount" -ForegroundColor Yellow
+    }
+
+    # Calculate completion rate correctly
     $CompletionRate = if ($TotalTasks -gt 0) { [math]::Round(($DoneCount / $TotalTasks) * 100) } else { 0 }
+
+    # Ensure completion rate is not greater than 100%
+    if ($CompletionRate -gt 100) {
+        Write-Warning "Calculated completion rate ($CompletionRate%) exceeds 100%. Setting to 100%."
+        $CompletionRate = 100
+    }
+
     $TotalEstimatedHours = 0
     $TotalActualHours = 0
 
@@ -343,6 +380,79 @@ function Get-ProjectStats {
         CompletionRate = $CompletionRate
         TotalEstimatedHours = $TotalEstimatedHours
         TotalActualHours = $TotalActualHours
+    }
+}
+
+# Function to update README.md with project metadata
+function Update-ReadmeMetadata {
+    param (
+        [hashtable]$ProjectStats,
+        [array]$AllTasks
+    )
+
+    $ReadmePath = "README.md"
+    if (-not (Test-Path -Path $ReadmePath)) {
+        Write-Warning "README.md not found, skipping metadata update"
+        return $false
+    }
+
+    try {
+        $ReadmeContent = Get-Content -Path $ReadmePath -Raw -Encoding UTF8 -ErrorAction Stop
+
+        # Create metadata section
+        $MetadataSection = "## 📊 Project Metadata`n" +
+                           "- **Last Updated:** $(Get-Date -Format 'yyyy-MM-dd HH:mm')`n" +
+                           "- **Total Tasks:** $($ProjectStats.TotalTasks)`n" +
+                           "- **Todo Tasks:** $($ProjectStats.TodoCount)`n" +
+                           "- **In Progress Tasks:** $($ProjectStats.InProgressCount)`n" +
+                           "- **Done Tasks:** $($ProjectStats.DoneCount)`n" +
+                           "- **Completion Rate:** $($ProjectStats.CompletionRate)%`n" +
+                           "- **Estimated Hours:** $($ProjectStats.TotalEstimatedHours)`n" +
+                           "- **Hours Logged:** $($ProjectStats.TotalActualHours)`n"
+
+        # Get the last task if there are any tasks
+        if ($ProjectStats.TotalTasks -gt 0) {
+            $LastTask = $AllTasks | Sort-Object -Property {
+                if ($_.ID -match "TASK-(\d+)") {
+                    [int]$matches[1]
+                } else {
+                    0
+                }
+            } -Descending | Select-Object -First 1
+
+            $MetadataSection += "- **Last Task:** $($LastTask.ID) - $($LastTask.Title)`n"
+        }
+
+        # Check if metadata section already exists
+        if ($ReadmeContent -match "## 📊 Project Metadata\r?\n") {
+            # Update existing metadata section
+            $ReadmeContent = $ReadmeContent -replace "## 📊 Project Metadata\r?\n((?:- \*\*.*\r?\n)+)", "$MetadataSection"
+        } else {
+            # Add metadata section after the title and description
+            $TitleAndDescriptionPattern = "# .*?\r?\n\r?\n.*?\r?\n\r?\n"
+            if ($ReadmeContent -match $TitleAndDescriptionPattern) {
+                $MatchLength = $matches[0].Length
+                $InsertPosition = $matches[0].Length
+                $ReadmeContent = $ReadmeContent.Insert($InsertPosition, "$MetadataSection`n")
+            } else {
+                # If pattern not found, add after the first line
+                $FirstLineEnd = $ReadmeContent.IndexOf("`n") + 1
+                $ReadmeContent = $ReadmeContent.Insert($FirstLineEnd, "`n$MetadataSection`n")
+            }
+        }
+
+        # Save updated README.md
+        $Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $false
+        [System.IO.File]::WriteAllText($ReadmePath, $ReadmeContent, $Utf8NoBomEncoding)
+
+        if (-not $Silent) {
+            Write-Host "README.md metadata has been updated successfully!" -ForegroundColor Green
+        }
+        return $true
+    }
+    catch {
+        Write-Error "Failed to update README.md metadata: $($_.Exception.Message)"
+        return $false
     }
 }
 
@@ -368,6 +478,18 @@ function Update-PlanFile {
 
     # Populate placeholders
     $PlanContent = $PlanContent -replace '\{\{ProjectName\}\}', "Project Plan" # Or use a variable
+
+    # Debug output to verify the values
+    if (-not $Silent) {
+        Write-Host "Debug - Task Stats:" -ForegroundColor Yellow
+        Write-Host "Total Tasks: $($ProjectStats.TotalTasks)" -ForegroundColor Yellow
+        Write-Host "Todo Count: $($ProjectStats.TodoCount)" -ForegroundColor Yellow
+        Write-Host "In Progress Count: $($ProjectStats.InProgressCount)" -ForegroundColor Yellow
+        Write-Host "Done Count: $($ProjectStats.DoneCount)" -ForegroundColor Yellow
+        Write-Host "Completion Rate: $($ProjectStats.CompletionRate)%" -ForegroundColor Yellow
+    }
+
+    # Ensure we're using the correct values
     $PlanContent = $PlanContent -replace '\{\{TotalTasks\}\}', $ProjectStats.TotalTasks
     $PlanContent = $PlanContent -replace '\{\{DoneCount\}\}', $ProjectStats.DoneCount
     $PlanContent = $PlanContent -replace '\{\{InProgressCount\}\}', $ProjectStats.InProgressCount
@@ -500,6 +622,10 @@ function Update-PlanFile {
         if (-not $Silent) {
             Write-Host "Plan.md has been updated successfully!" -ForegroundColor Green
         }
+
+        # Update README.md with project metadata
+        Update-ReadmeMetadata -ProjectStats $ProjectStats -AllTasks $AllTasks
+
         return $true
     }
     catch {

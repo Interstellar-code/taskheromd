@@ -2,10 +2,10 @@
 
 ## 📊 Project Stats
 - **Total Tasks:** 2
-- **✅ Done:** 14
-- **⏳ In Progress:** 14
+- **✅ Done:** 1
+- **⏳ In Progress:** 1
 - **📋 Todo:** 0
-- **🎯 Completion Rate:** 700%
+- **🎯 Completion Rate:** 50%
 - **⏱️ Estimated Total Hours:** 13
 - **⏱️ Hours Logged:** 3
 
