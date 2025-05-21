@@ -4,13 +4,13 @@
 This document tracks all tasks for the project using a Kanban-style approach with dependency tracking.
 
 ## 📊 Project Stats
-- **Total Tasks:** 5
-- **Todo:** 3
-- **In Progress:** 14
-- **Done:** 14
-- **Completion Rate:** 280%
-- **Estimated Total Hours:** 57
-- **Hours Logged:** 20
+- **Total Tasks:** 0
+- **Todo:** 0
+- **In Progress:** 0
+- **Done:** 0
+- **Completion Rate:** 0%
+- **Estimated Total Hours:** 0
+- **Hours Logged:** 0
 
 ## 🔄 Workflow
 1. New tasks are created using the task template and placed in the 	odo folder
@@ -48,12 +48,6 @@ graph TD
 ```mermaid
 timeline
     title Project Timeline
-    section 2025
-        May : TASK-003: Implement Subscription Table UI (Done)
-                 : TASK-002: Create Subscription Edit Form (In Progress)
-                 : TASK-001: Implement Zustand Subscription Store (Todo)
-                 : TASK-004: Implement Subscription Listing Page (Todo)
-                 : TASK-005: Implement Subscription Actions (Todo)
 ```
 
 ## 📊 Task Summary
@@ -70,3 +64,4 @@ timeline
 - 2025-05-21 - Updated plan.md with latest task statuses
 
 - 2025-05-21 - Initial project plan created
+

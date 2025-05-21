@@ -75,7 +75,8 @@ The PowerShell scripts automate the maintenance of the plan.md file:
 #### Consolidated Script (Recommended)
 - `update-plan-consolidated.ps1` - All-in-one script with interactive menu and silent mode options:
   - Update plan.md with current task statuses
-  - Generate project reports
+  - Generate project status reports
+  - Generate comprehensive project plan reports with detailed visualizations
   - List tasks (all, by status, by assignee)
   - Reset project by archiving all tasks
 
@@ -83,7 +84,8 @@ The PowerShell scripts automate the maintenance of the plan.md file:
   - Interactive mode: `.\update-plan-consolidated.ps1`
   - Silent mode examples:
     - Update plan: `.\update-plan-consolidated.ps1 -Silent -UpdatePlan`
-    - Generate report: `.\update-plan-consolidated.ps1 -Silent -GenerateReport -ReportPath "custom-report.md"`
+    - Generate status report: `.\update-plan-consolidated.ps1 -Silent -GenerateReport -ReportPath "custom-report.md"`
+    - Generate comprehensive plan report: `.\update-plan-consolidated.ps1 -Silent -GenerateComprehensiveReport -ComprehensiveReportPath "custom-plan-report.md"`
     - List tasks: `.\update-plan-consolidated.ps1 -Silent -ListTasks -TaskStatus "todo" -AssignedTo "John"`
     - Reset project: `.\update-plan-consolidated.ps1 -Silent -ResetTasks`
 

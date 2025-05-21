@@ -741,6 +741,253 @@ $TimelineMermaid
     }
 }
 
+# Function to generate a comprehensive project plan report
+function New-ComprehensiveProjectPlanReport {
+    param (
+        [string]$OutputPath = "project-plan-report-$(Get-Date -Format 'yyyy-MM-dd').md"
+    )
+
+    $TaskData = Get-AllTasks
+    $AllTasks = $TaskData.Tasks
+    $ProjectStats = Get-ProjectStats -AllTasks $AllTasks
+    $CurrentDate = Get-Date -Format "yyyy-MM-dd"
+
+    # Sort tasks by sequence
+    $SortedTasks = $AllTasks | Sort-Object -Property Sequence
+
+    # Group tasks by status
+    $TodoTasks = $SortedTasks | Where-Object { $_.Status -eq $TaskStatusTodo }
+    $InProgressTasks = $SortedTasks | Where-Object { $_.Status -eq $TaskStatusInProgress }
+    $DoneTasks = $SortedTasks | Where-Object { $_.Status -eq $TaskStatusDone }
+
+    # Create ASCII progress bar
+    $PercentComplete = $ProjectStats.CompletionRate
+    $CompleteBars = [math]::Round($PercentComplete / 5)
+    $RemainingBars = 20 - $CompleteBars
+    
+    $ProgressBar = ""
+    for ($i = 0; $i -lt $CompleteBars; $i++) {
+        $ProgressBar += "█"
+    }
+    for ($i = 0; $i -lt $RemainingBars; $i++) {
+        $ProgressBar += "░"
+    }
+
+    # Group tasks by assignee
+    $TasksByAssignee = @{}
+    
+    foreach ($Task in $SortedTasks) {
+        if (-not $Task.AssignedTo) {
+            $Assignee = "Unassigned"
+        } else {
+            $Assignee = $Task.AssignedTo
+        }
+        
+        if (-not $TasksByAssignee.ContainsKey($Assignee)) {
+            $TasksByAssignee[$Assignee] = @{
+                Todo = 0
+                InProgress = 0
+                Done = 0
+                TotalEstimatedHours = 0
+                TotalActualHours = 0
+                Tasks = @()
+            }
+        }
+        
+        # Count tasks by status
+        switch ($Task.Status) {
+            $TaskStatusTodo { $TasksByAssignee[$Assignee].Todo++ }
+            $TaskStatusInProgress { $TasksByAssignee[$Assignee].InProgress++ }
+            $TaskStatusDone { $TasksByAssignee[$Assignee].Done++ }
+        }
+        
+        # Add hours
+        if ($null -ne $Task.EstimatedHours) {
+            $TasksByAssignee[$Assignee].TotalEstimatedHours += $Task.EstimatedHours
+        }
+        
+        if ($null -ne $Task.ActualHours) {
+            $TasksByAssignee[$Assignee].TotalActualHours += $Task.ActualHours
+        }
+        
+        # Add task to assignee's list
+        $TasksByAssignee[$Assignee].Tasks += $Task
+    }
+
+    # Generate report content
+    $ReportContent = @"
+# Comprehensive Project Plan Report - $CurrentDate
+
+## 📋 Project Overview
+
+This document provides a comprehensive view of the project plan, including all tasks, their statuses, dependencies, and timelines.
+
+## 📊 Project Statistics
+
+### Summary
+- **Total Tasks:** $($ProjectStats.TotalTasks)
+- **Todo:** $($ProjectStats.TodoCount)
+- **In Progress:** $($ProjectStats.InProgressCount)
+- **Done:** $($ProjectStats.DoneCount)
+- **Completion Rate:** $($ProjectStats.CompletionRate)%
+- **Estimated Total Hours:** $($ProjectStats.TotalEstimatedHours)
+- **Hours Logged:** $($ProjectStats.TotalActualHours)
+
+### Progress Visualization
+
+```text
+Project Completion: $ProgressBar $PercentComplete%
+```
+
+### Task Distribution
+
+```mermaid
+pie title Task Distribution
+    'Todo' : $($ProjectStats.TodoCount)
+    'In Progress' : $($ProjectStats.InProgressCount)
+    'Done' : $($ProjectStats.DoneCount)
+```
+
+## 📝 Detailed Task List
+
+### Todo Tasks
+"@
+
+    # Add Todo tasks details
+    if ($TodoTasks.Count -gt 0) {
+        foreach ($Task in $TodoTasks) {
+            $ReportContent += @"
+
+#### $($Task.ID): $($Task.Title)
+
+- **Priority:** $($Task.Priority)
+- **Due Date:** $($Task.DueDate)
+- **Assigned To:** $($Task.AssignedTo)
+- **Progress:** $($Task.Progress)%
+- **Estimated Hours:** $($Task.EstimatedHours)
+- **Actual Hours:** $($Task.ActualHours)
+- **Tags:** $($Task.Tags)
+"@
+        }
+    } else {
+        $ReportContent += "`nNo tasks in Todo status."
+    }
+
+    # Add In Progress tasks details
+    $ReportContent += "`n`n### In Progress Tasks"
+    if ($InProgressTasks.Count -gt 0) {
+        foreach ($Task in $InProgressTasks) {
+            $ReportContent += @"
+
+#### $($Task.ID): $($Task.Title)
+
+- **Priority:** $($Task.Priority)
+- **Due Date:** $($Task.DueDate)
+- **Assigned To:** $($Task.AssignedTo)
+- **Progress:** $($Task.Progress)%
+- **Estimated Hours:** $($Task.EstimatedHours)
+- **Actual Hours:** $($Task.ActualHours)
+- **Tags:** $($Task.Tags)
+"@
+        }
+    } else {
+        $ReportContent += "`nNo tasks in In Progress status."
+    }
+
+    # Add Done tasks details
+    $ReportContent += "`n`n### Done Tasks"
+    if ($DoneTasks.Count -gt 0) {
+        foreach ($Task in $DoneTasks) {
+            $ReportContent += @"
+
+#### $($Task.ID): $($Task.Title)
+
+- **Priority:** $($Task.Priority)
+- **Due Date:** $($Task.DueDate)
+- **Assigned To:** $($Task.AssignedTo)
+- **Progress:** 100%
+- **Estimated Hours:** $($Task.EstimatedHours)
+- **Actual Hours:** $($Task.ActualHours)
+- **Tags:** $($Task.Tags)
+"@
+        }
+    } else {
+        $ReportContent += "`nNo tasks in Done status."
+    }
+
+    # Resource Allocation Section
+    $ReportContent += @"
+
+## 👥 Resource Allocation
+
+### Resource Workload
+
+| Resource | Todo | In Progress | Done | Total Tasks | Estimated Hours | Actual Hours |
+|----------|------|-------------|------|-------------|-----------------|--------------|
+"@
+
+    # Add resource allocation table
+    foreach ($Assignee in $TasksByAssignee.Keys | Sort-Object) {
+        $TotalTasks = $TasksByAssignee[$Assignee].Todo + $TasksByAssignee[$Assignee].InProgress + $TasksByAssignee[$Assignee].Done
+        $ReportContent += "`n| $Assignee | $($TasksByAssignee[$Assignee].Todo) | $($TasksByAssignee[$Assignee].InProgress) | $($TasksByAssignee[$Assignee].Done) | $TotalTasks | $($TasksByAssignee[$Assignee].TotalEstimatedHours) | $($TasksByAssignee[$Assignee].TotalActualHours) |"
+    }
+
+    # Conclusion
+    $ReportContent += @"
+
+## 📝 Conclusion
+
+This comprehensive project plan report provides a complete overview of the project's current status, tasks, timelines, and resource allocation. Use this report to track progress, identify bottlenecks, and make informed decisions about project management.
+
+Report generated on $CurrentDate
+"@
+
+    foreach ($Assignee in $TasksByAssignee.Keys | Sort-Object) {
+        $ReportContent += "#### $Assignee`n`n"
+        $ReportContent += "- **Total Tasks:** $($TasksByAssignee[$Assignee].Todo + $TasksByAssignee[$Assignee].InProgress + $TasksByAssignee[$Assignee].Done)`n"
+        $ReportContent += "- **Todo:** $($TasksByAssignee[$Assignee].Todo)`n"
+        $ReportContent += "- **In Progress:** $($TasksByAssignee[$Assignee].InProgress)`n"
+        $ReportContent += "- **Done:** $($TasksByAssignee[$Assignee].Done)`n"
+        $ReportContent += "- **Estimated Hours:** $($TasksByAssignee[$Assignee].TotalEstimatedHours)`n"
+        $ReportContent += "- **Actual Hours:** $($TasksByAssignee[$Assignee].TotalActualHours)`n`n"
+
+        $ReportContent += "**Assigned Tasks:**`n`n"
+        $ReportContent += "| Task ID | Status | Title | Priority | Due Date | Progress |`n"
+        $ReportContent += "|---------|--------|-------|----------|----------|----------|`n"
+
+        foreach ($Task in $TasksByAssignee[$Assignee].Tasks | Sort-Object -Property Status, Sequence) {
+            $StatusText = switch ($Task.Status) {
+                $TaskStatusTodo { "Todo" }
+                $TaskStatusInProgress { "In Progress" }
+                $TaskStatusDone { "Done" }
+                default { "Unknown" }
+            }
+
+            $ReportContent += "| $($Task.ID) | $StatusText | $($Task.Title) | $($Task.Priority) | $($Task.DueDate) | $($Task.Progress)% |`n"
+        }
+
+        $ReportContent += "`n"
+    }
+
+    # Conclusion
+    $ReportContent += "## 📝 Conclusion`n`n"
+    $ReportContent += "This comprehensive project plan report provides a complete overview of the project's current status, tasks, timelines, and resource allocation. Use this report to track progress, identify bottlenecks, and make informed decisions about project management.`n`n"
+    $ReportContent += "Report generated on $CurrentDate`n"
+
+    # Save report
+    try {
+        Set-Content -Path $OutputPath -Value $ReportContent -ErrorAction Stop
+        if (-not $Silent) {
+            Write-Host "Comprehensive project plan report has been generated: $OutputPath" -ForegroundColor Green
+        }
+        return $OutputPath
+    }
+    catch {
+        Write-Error "Failed to generate comprehensive report: $($_.Exception.Message)"
+        return $null
+    }
+}
+
 # Function to generate a project report
 function New-ProjectReport {
     param (
@@ -1104,6 +1351,10 @@ if ($Silent) {
         New-ProjectReport -OutputPath $ReportPath
     }
 
+    if ($GenerateComprehensiveReport) {
+        New-ComprehensiveProjectPlanReport -OutputPath $ComprehensiveReportPath
+    }
+
     if ($ListTasks) {
         $Tasks = Get-TaskList -Status $TaskStatus -AssignedTo $AssignedTo
         Show-TaskList -Tasks $Tasks
@@ -1179,3 +1430,8 @@ while (-not $exit) {
         }
     }
 }
+
+
+
+
+
