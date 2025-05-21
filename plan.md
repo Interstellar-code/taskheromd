@@ -11,28 +11,31 @@
 
 ## 📋 Kanban Board
 ```mermaid
+---
+config:
+  kanban:
+    ticketBaseUrl: 'https://project.atlassian.net/browse/#TICKET#'
+---
 kanban
-    Todo
+  Todo
     
-    InProgress
-            task-TASK-001[TASK-001 - Sample Task for Testing
-Priority: High | Due: 2025-06-01 | Assigned: Developer | Progress: 0%]
-    Done
-            task-TASK-002[TASK-002 - Sample In Progress Task
-Priority: Medium | Due: 2025-06-05 | Assigned: Developer | Progress: 100%]
+  [In Progress]
+        task-001[TASK-001 - Sample Task for Testing]@{ priority: 'High', assigned: 'Developer', due: '2025-06-01' }
+  [Done]
+        task-002[TASK-002 - Sample In Progress Task]@{ priority: 'Medium', assigned: 'Developer', due: '2025-06-05' }
 ```
 
 ## 📝 Task Summary
 | ID | Status | Title | Priority | Due Date | Assigned To | Progress |
 |----|--------|-------|----------|----------|-------------|----------|
-| TASK-001 | In Progress | Sample Task for Testing | High | 2025-06-01 | Developer | 0% |
 | TASK-002 | Done | Sample In Progress Task | Medium | 2025-06-05 | Developer | 100% |
+| TASK-001 | In Progress | Sample Task for Testing | High | 2025-06-01 | Developer | 0% |
 
 ## 🔗 Task Dependencies
 | Task ID | Task Name | Depends On | Required By |
 |---------|-----------|------------|-------------|
-| TASK-001 | Sample Task for Testing |  |  |
 | TASK-002 | Sample In Progress Task |  |  |
+| TASK-001 | Sample Task for Testing |  |  |
 
 ## ⏳ Timeline
 ```mermaid
@@ -45,4 +48,4 @@ timeline
 
 ## 🔄 Recent Updates
 
-- 2025-05-21 - Plan updated.
+- 2025-05-22 - Plan updated.

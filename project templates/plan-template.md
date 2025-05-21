@@ -11,12 +11,17 @@
 
 ## 📋 Kanban Board
 ```mermaid
+---
+config:
+  kanban:
+    ticketBaseUrl: 'https://project.atlassian.net/browse/#TICKET#'
+---
 kanban
-    Todo
+  Todo
     {{KanbanTodoTasks}}
-    InProgress
+  [In Progress]
     {{KanbanInProgressTasks}}
-    Done
+  [Done]
     {{KanbanDoneTasks}}
 ```
 

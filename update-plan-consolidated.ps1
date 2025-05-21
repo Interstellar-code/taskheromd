@@ -32,12 +32,20 @@ function Get-TaskProgress {
         $CriteriaSection = $matches[1]
         $CriteriaLines = $CriteriaSection -split "\r?\n" | Where-Object { $_ -match "- \[[ x]\]" }
 
-        $TotalCriteria = $CriteriaLines.Count
-        $CompletedCriteria = ($CriteriaLines | Where-Object { $_ -match "- \[x\]" }).Count
+        $TotalCriteria += $CriteriaLines.Count
+        $CompletedCriteria += ($CriteriaLines | Where-Object { $_ -match "- \[x\]" }).Count
     }
 
-    # Also check subtasks checklist if present
-    if ($Content -match "## Subtasks Checklist\r?\n((?:- \[[ x]\].*\r?\n)+)") {
+    # Check Implementation Steps with Checklists section
+    if ($Content -match "## Implementation Steps with Checklists\r?\n((?:.|\r?\n)+?)(?:\r?\n##\s|$)") {
+        $ChecklistSection = $matches[1]
+        $ChecklistLines = $ChecklistSection -split "\r?\n" | Where-Object { $_ -match "- \[[ x]\]" }
+
+        $TotalCriteria += $ChecklistLines.Count
+        $CompletedCriteria += ($ChecklistLines | Where-Object { $_ -match "- \[x\]" }).Count
+    }
+    # Also check the old subtasks checklist section for backward compatibility
+    elseif ($Content -match "## Subtasks Checklist\r?\n((?:- \[[ x]\].*\r?\n)+)") {
         $ChecklistSection = $matches[1]
         $ChecklistLines = $ChecklistSection -split "\r?\n" | Where-Object { $_ -match "- \[[ x]\]" }
 
@@ -328,10 +336,23 @@ function Get-ProjectStats {
         }
     }
 
+    # Clear counters for task statuses
+    $TodoCount = 0
+    $InProgressCount = 0
+    $DoneCount = 0
+
     # Ensure we're using the correct status values
-    $TodoCount = ($AllTasks | Where-Object { $_.Status -eq $TaskStatusTodo }).Count
-    $InProgressCount = ($AllTasks | Where-Object { $_.Status -eq $TaskStatusInProgress }).Count
-    $DoneCount = ($AllTasks | Where-Object { $_.Status -eq $TaskStatusDone }).Count
+    foreach ($Task in $AllTasks) {
+        if ($Task.Status -eq $TaskStatusTodo) {
+            $TodoCount++
+        }
+        elseif ($Task.Status -eq $TaskStatusInProgress) {
+            $InProgressCount++
+        }
+        elseif ($Task.Status -eq $TaskStatusDone) {
+            $DoneCount++
+        }
+    }
 
     # Verify the counts add up to the total
     $TotalStatusCount = $TodoCount + $InProgressCount + $DoneCount
@@ -347,8 +368,7 @@ function Get-ProjectStats {
         $TodoCount = (Get-ChildItem -Path $TodoPath -Filter "TASK-*.md" -ErrorAction SilentlyContinue).Count
         $InProgressCount = (Get-ChildItem -Path $InProgressPath -Filter "TASK-*.md" -ErrorAction SilentlyContinue).Count
         $DoneCount = (Get-ChildItem -Path $DonePath -Filter "TASK-*.md" -ErrorAction SilentlyContinue).Count
-
-        Write-Host "Recounted by folder: Todo: $TodoCount, InProgress: $InProgressCount, Done: $DoneCount" -ForegroundColor Yellow
+        $TotalTasks = $TodoCount + $InProgressCount + $DoneCount
     }
 
     # Calculate completion rate correctly
@@ -400,7 +420,7 @@ function Update-ReadmeMetadata {
         $ReadmeContent = Get-Content -Path $ReadmePath -Raw -Encoding UTF8 -ErrorAction Stop
 
         # Create metadata section
-        $MetadataSection = "## 📊 Project Metadata`n" +
+        $MetadataSection = "## Project Metadata`n" +
                            "- **Last Updated:** $(Get-Date -Format 'yyyy-MM-dd HH:mm')`n" +
                            "- **Total Tasks:** $($ProjectStats.TotalTasks)`n" +
                            "- **Todo Tasks:** $($ProjectStats.TodoCount)`n" +
@@ -424,9 +444,9 @@ function Update-ReadmeMetadata {
         }
 
         # Check if metadata section already exists
-        if ($ReadmeContent -match "## 📊 Project Metadata\r?\n") {
+        if ($ReadmeContent -match "## Project Metadata\r?\n") {
             # Update existing metadata section
-            $ReadmeContent = $ReadmeContent -replace "## 📊 Project Metadata\r?\n((?:- \*\*.*\r?\n)+)", "$MetadataSection"
+            $ReadmeContent = $ReadmeContent -replace "## Project Metadata\r?\n((?:- \*\*.*\r?\n)+)", "$MetadataSection"
         } else {
             # Add metadata section after the title and description
             $TitleAndDescriptionPattern = "# .*?\r?\n\r?\n.*?\r?\n\r?\n"
@@ -503,8 +523,23 @@ function Update-PlanFile {
     $KanbanTodoTasks = ""
     ($AllTasks | Where-Object { $_.Status -eq $TaskStatusTodo } | Sort-Object -Property Sequence) | ForEach-Object {
         # Combine task details and metadata into a single task block
-        $TaskContent = "$($_.ID) - $($_.Title)`nPriority: $($_.Priority) | Due: $($_.DueDate) | Assigned: $($_.AssignedTo) | Progress: $($_.Progress)%"
-        $KanbanTodoTasks += "        task-$($_.ID)[$TaskContent]`n" # Use task ID as identifier and combine details in one block
+        $TaskContent = "$($_.ID) - $($_.Title)"
+        $TaskMetadata = ""
+        if ($_.Priority -or $_.DueDate -or $_.AssignedTo) {
+            $TaskMetadata = "@{ "
+            if ($_.Priority) { $TaskMetadata += "priority: '$($_.Priority)', " }
+            if ($_.AssignedTo) { $TaskMetadata += "assigned: '$($_.AssignedTo)', " }
+            if ($_.DueDate) { $TaskMetadata += "due: '$($_.DueDate)'" }
+            $TaskMetadata = $TaskMetadata.TrimEnd(', ') + " }"
+        }
+        
+        # Use the ID without "TASK-" prefix since it's already in the content
+        $TaskPrefix = $_.ID -replace "TASK-", ""
+        $FormattedTask = "    task-$TaskPrefix[$TaskContent]"
+        if ($TaskMetadata) {
+            $FormattedTask += $TaskMetadata
+        }
+        $KanbanTodoTasks += "$FormattedTask`n"
     }
     $EscapedKanbanTodoTasks = $KanbanTodoTasks.TrimEnd().Replace('$', '$$')
     $PlanContent = $PlanContent -replace '\{\{KanbanTodoTasks\}\}', $EscapedKanbanTodoTasks
@@ -512,8 +547,23 @@ function Update-PlanFile {
     $KanbanInProgressTasks = ""
     ($AllTasks | Where-Object { $_.Status -eq $TaskStatusInProgress } | Sort-Object -Property Sequence) | ForEach-Object {
         # Combine task details and metadata into a single task block
-        $TaskContent = "$($_.ID) - $($_.Title)`nPriority: $($_.Priority) | Due: $($_.DueDate) | Assigned: $($_.AssignedTo) | Progress: $($_.Progress)%"
-        $KanbanInProgressTasks += "        task-$($_.ID)[$TaskContent]`n" # Use task ID as identifier and combine details in one block
+        $TaskContent = "$($_.ID) - $($_.Title)"
+        $TaskMetadata = ""
+        if ($_.Priority -or $_.DueDate -or $_.AssignedTo) {
+            $TaskMetadata = "@{ "
+            if ($_.Priority) { $TaskMetadata += "priority: '$($_.Priority)', " }
+            if ($_.AssignedTo) { $TaskMetadata += "assigned: '$($_.AssignedTo)', " }
+            if ($_.DueDate) { $TaskMetadata += "due: '$($_.DueDate)'" }
+            $TaskMetadata = $TaskMetadata.TrimEnd(', ') + " }"
+        }
+        
+        # Use the ID without "TASK-" prefix since it's already in the content
+        $TaskPrefix = $_.ID -replace "TASK-", ""
+        $FormattedTask = "    task-$TaskPrefix[$TaskContent]"
+        if ($TaskMetadata) {
+            $FormattedTask += $TaskMetadata
+        }
+        $KanbanInProgressTasks += "$FormattedTask`n"
     }
     $EscapedKanbanInProgressTasks = $KanbanInProgressTasks.TrimEnd().Replace('$', '$$')
     $PlanContent = $PlanContent -replace '\{\{KanbanInProgressTasks\}\}', $EscapedKanbanInProgressTasks
@@ -521,8 +571,23 @@ function Update-PlanFile {
     $KanbanDoneTasks = ""
     ($AllTasks | Where-Object { $_.Status -eq $TaskStatusDone } | Sort-Object -Property Sequence) | ForEach-Object {
         # Combine task details and metadata into a single task block
-        $TaskContent = "$($_.ID) - $($_.Title)`nPriority: $($_.Priority) | Due: $($_.DueDate) | Assigned: $($_.AssignedTo) | Progress: 100%"
-        $KanbanDoneTasks += "        task-$($_.ID)[$TaskContent]`n" # Use task ID as identifier and combine details in one block
+        $TaskContent = "$($_.ID) - $($_.Title)"
+        $TaskMetadata = ""
+        if ($_.Priority -or $_.DueDate -or $_.AssignedTo) {
+            $TaskMetadata = "@{ "
+            if ($_.Priority) { $TaskMetadata += "priority: '$($_.Priority)', " }
+            if ($_.AssignedTo) { $TaskMetadata += "assigned: '$($_.AssignedTo)', " }
+            if ($_.DueDate) { $TaskMetadata += "due: '$($_.DueDate)'" }
+            $TaskMetadata = $TaskMetadata.TrimEnd(', ') + " }"
+        }
+        
+        # Use the ID without "TASK-" prefix since it's already in the content
+        $TaskPrefix = $_.ID -replace "TASK-", ""
+        $FormattedTask = "    task-$TaskPrefix[$TaskContent]"
+        if ($TaskMetadata) {
+            $FormattedTask += $TaskMetadata
+        }
+        $KanbanDoneTasks += "$FormattedTask`n"
     }
     $EscapedKanbanDoneTasks = $KanbanDoneTasks.TrimEnd().Replace('$', '$$')
     $PlanContent = $PlanContent -replace '\{\{KanbanDoneTasks\}\}', $EscapedKanbanDoneTasks

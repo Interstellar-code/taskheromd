@@ -2,6 +2,17 @@
 
 This repository contains a comprehensive Markdown-based project planning and documentation system.
 
+## Project Metadata
+- **Last Updated:** 2025-05-22 00:10
+- **Total Tasks:** 2
+- **Todo Tasks:** 0
+- **In Progress Tasks:** 1
+- **Done Tasks:** 1
+- **Completion Rate:** 50%
+- **Estimated Hours:** 13
+- **Hours Logged:** 3
+- **Last Task:** TASK-002 - Sample In Progress Task
+
 ## 📊 Project Metadata
 - **Last Updated:** 2025-05-21 17:58
 - **Total Tasks:** 2

@@ -27,31 +27,44 @@
 - [ ] Criterion 1
 - [ ] Criterion 2
 - [ ] Criterion 3
+- [ ] Automated test plan created and reviewed
+- [ ] Automated tests implemented and passing
 
-## Implementation Steps
+## Implementation Steps with Checklists
 
 ### 1. [First Step]
 [Description of the first implementation step]
+- [ ] **1.1. Action Item**: [Brief description]
+  - [ ] Sub-action 1.1.1: [Details]
+  - [ ] Sub-action 1.1.2: [Details]
+- [ ] **1.2. Action Item**: [Brief description]
+  - [ ] Sub-action 1.2.1: [Details]
 
 ### 2. [Second Step]
 [Description of the second implementation step]
+- [ ] **2.1. Action Item**: [Brief description]
+  - [ ] Sub-action 2.1.1: [Details]
+  - [ ] Sub-action 2.1.2: [Details]
+- [ ] **2.2. Action Item**: [Brief description]
 
 ### 3. [Third Step]
 [Description of the third implementation step]
+- [ ] **3.1. Action Item**: [Brief description]
+  - [ ] Sub-action 3.1.1: [Details]
+  - [ ] Sub-action 3.1.2: [Details]
+  - [ ] Sub-action 3.1.3: [Details]
 
-## Subtasks Checklist
-- [ ] **Subtask 1**: [Brief description of subtask]
-  - [ ] Subtask 1.1: [Detailed action item]
-  - [ ] Subtask 1.2: [Detailed action item]
-  - [ ] Subtask 1.3: [Detailed action item]
-- [ ] **Subtask 2**: [Brief description of subtask]
-  - [ ] Subtask 2.1: [Detailed action item]
-  - [ ] Subtask 2.2: [Detailed action item]
-- [ ] **Subtask 3**: [Brief description of subtask]
-  - [ ] Subtask 3.1: [Detailed action item]
-  - [ ] Subtask 3.2: [Detailed action item]
-  - [ ] Subtask 3.3: [Detailed action item]
-  - [ ] Subtask 3.4: [Detailed action item]
+### 4. Testing
+[Describe the testing approach for this task]
+- [ ] **4.1. Create Test Plan**: Create the automated test plan
+  - [ ] Create `[Feature Name]-automated-test.md` based on `automated-test-template.md`
+  - [ ] Define test cases for core functionality
+  - [ ] Define test cases for edge cases and validation
+  - [ ] Review test plan with team
+- [ ] **4.2. Implement Tests**: Develop automated tests
+  - [ ] Implement core functionality tests
+  - [ ] Implement edge case tests
+  - [ ] Ensure tests pass consistently
 
 ## Dependencies
 ### Required By This Task
@@ -66,7 +79,23 @@
 - **Related**: Tasks are related but not directly dependent
 
 ## Testing Strategy
-[Description of how the implementation will be tested]
+[Describe the overall approach to testing this functionality]
+
+### Manual Testing
+[Outline manual testing requirements and approach]
+
+### Automated Testing
+An automated test plan should be created for this functionality using the standard template:
+- Create a new file named `[Feature Name]-automated-test.md` based on the `automated-test-template.md`
+- Complete all sections of the template with test cases specific to this functionality
+- Include test code examples that can be implemented in the test framework
+- Reference the test plan in implementation deliverables
+
+The automated test plan should cover:
+- Core functionality tests
+- Edge cases and validation
+- Performance considerations
+- Any specific requirements for this feature
 
 ## Technical Considerations
 [Any technical considerations, potential challenges, or architectural decisions]
