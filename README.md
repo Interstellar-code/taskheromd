@@ -58,11 +58,16 @@ The `plan.md` file serves as a Kanban board with three columns:
 - DONE: Completed tasks
 
 Each task in the board includes:
-- ID
-- Title
+- ID and Title
 - Priority
 - Due Date
 - Assigned To
+- Progress percentage
+
+The Kanban board is visualized using Mermaid's Kanban syntax, which displays all task details in a single card for better readability. The board is color-coded:
+- Todo tasks: Light red
+- In Progress tasks: Light blue
+- Done tasks: Light green
 
 ### Automation Scripts
 The PowerShell scripts automate the maintenance of the plan.md file:

@@ -154,8 +154,39 @@ function Get-TaskMetadata {
     return $Metadata
 }
 
+# Function to ensure required folders exist
+function Ensure-RequiredFolders {
+    $ProjectPlanningPath = "project planning"
+    $TodoPath = "project planning/todo"
+    $InProgressPath = "project planning/inprogress"
+    $DonePath = "project planning/done"
+    $ArchivePath = "project planning/archive"
+    $TemplatesPath = "project templates"
+    $DocsPath = "project docs"
+
+    # Create folders if they don't exist
+    $Folders = @($ProjectPlanningPath, $TodoPath, $InProgressPath, $DonePath, $ArchivePath, $TemplatesPath, $DocsPath)
+
+    foreach ($Folder in $Folders) {
+        if (-not (Test-Path -Path $Folder)) {
+            try {
+                New-Item -Path $Folder -ItemType Directory -Force | Out-Null
+                if (-not $Silent) {
+                    Write-Host "Created folder: $Folder" -ForegroundColor Green
+                }
+            }
+            catch {
+                Write-Error "Failed to create folder $($Folder): $($_.Exception.Message)"
+            }
+        }
+    }
+}
+
 # Function to get all tasks
 function Get-AllTasks {
+    # Ensure required folders exist
+    Ensure-RequiredFolders
+
     $TodoPath = "project planning/todo"
     $InProgressPath = "project planning/inprogress"
     $DonePath = "project planning/done"
@@ -317,13 +348,149 @@ function Update-PlanFile {
     $TaskData = Get-AllTasks
     $AllTasks = $TaskData.Tasks
     $ProjectStats = Get-ProjectStats -AllTasks $AllTasks
+    $CurrentDate = Get-Date -Format "yyyy-MM-dd"
 
-    $PlanContent = Get-Content -Path "plan.md" -Raw
+    # Check if plan.md exists and has content
+    $PlanExists = Test-Path -Path "plan.md"
+    $PlanHasContent = $false
+
+    if ($PlanExists) {
+        try {
+            $ExistingContent = Get-Content -Path "plan.md" -Raw -ErrorAction Stop
+            $PlanHasContent = ($ExistingContent -and $ExistingContent.Trim().Length -gt 0)
+        }
+        catch {
+            $PlanHasContent = $false
+        }
+    }
+
+    # If plan.md doesn't exist or is empty, create a new one
+    if (-not $PlanExists -or -not $PlanHasContent) {
+        $ProjectName = "Project Plan"
+
+        # Create a complete template with all necessary sections
+        $NewPlanContent = @"
+# $ProjectName
+
+## 📋 Overview
+This document tracks all tasks for the project using a Kanban-style approach with dependency tracking.
+
+## 📊 Project Stats
+- **Total Tasks:** $($ProjectStats.TotalTasks)
+- **Todo:** $($ProjectStats.TodoCount)
+- **In Progress:** $($ProjectStats.InProgressCount)
+- **Done:** $($ProjectStats.DoneCount)
+- **Completion Rate:** $($ProjectStats.CompletionRate)%
+- **Estimated Total Hours:** $($ProjectStats.TotalEstimatedHours)
+- **Hours Logged:** $($ProjectStats.TotalActualHours)
+
+## 🔄 Workflow
+1. New tasks are created using the task template and placed in the `todo` folder
+2. When work begins on a task, move it to the `inprogress` folder
+3. When a task is completed, move it to the `done` folder
+4. Update this plan.md file to reflect the current state of all tasks
+5. Update dependency information in related tasks
+
+## 📝 Task Template
+The task template (`project templates/task-template.md`) combines elements from a standard task template and the implementation plan template. It includes:
+
+- **Metadata**: Basic task information (ID, title, dates, priority, status, etc.)
+- **Implementation Status**: Table showing progress of individual steps
+- **Detailed Description**: Comprehensive explanation of the task
+- **Acceptance Criteria**: Checklist of requirements for completion
+- **Implementation Steps**: Detailed breakdown of how to complete the task
+- **Dependencies**: Tasks that this task depends on and tasks that depend on this task
+- **Testing Strategy**: How the implementation will be tested
+- **Technical Considerations**: Any technical details or challenges
+- **Time Tracking**: Estimated and actual hours spent
+
+Use this template for all new tasks to ensure consistency and completeness.
+
+## 📊 Dependency Graph
+
+```mermaid
+graph TD
+    classDef todo fill:#ff9999;
+    classDef inprogress fill:#99ccff;
+    classDef done fill:#99ff99;
+```
+
+## 📅 Timeline
+
+```mermaid
+timeline
+    title Project Timeline
+```
+
+## 🔄 Task Dependencies
+
+| Task ID | Task Name | Depends On | Required By |
+|---------|-----------|------------|------------|
+
+## 📋 Kanban Board
+
+```mermaid
+---
+displayMode: compact
+---
+%%{
+  init: {
+    'theme': 'default',
+    'themeVariables': {
+      'cDoneColor': '#d0f0c0',
+      'cInProgressColor': '#b0e0e6',
+      'cToDoColor': '#ffe4e1'
+    }
+  }
+}%%
+
+kanban
+    Todo
+    In Progress
+    Done
+```
+
+## 📊 Task Summary
+
+| ID | Status | Title | Priority | Due Date | Assigned To | Progress |
+|----|--------|-------|----------|----------|-------------|----------|
+
+## 📅 Recent Updates
+
+- $CurrentDate - Initial project plan created
+"@
+
+        # Save the new plan.md file
+        try {
+            Set-Content -Path "plan.md" -Value $NewPlanContent -ErrorAction Stop
+
+            if (-not $Silent) {
+                Write-Host "Created new plan.md file with template structure" -ForegroundColor Green
+            }
+
+            # Set the content for further processing
+            $PlanContent = $NewPlanContent
+        }
+        catch {
+            Write-Error "Failed to create plan.md file: $($_.Exception.Message)"
+            return $false
+        }
+    }
+    else {
+        # Read the existing plan.md file
+        try {
+            $PlanContent = Get-Content -Path "plan.md" -Raw -ErrorAction Stop
+        }
+        catch {
+            Write-Error "Failed to read plan.md file: $($_.Exception.Message)"
+            return $false
+        }
+    }
 
     # Update project stats
-    $StatsPattern = '## Project Stats[\s\S]*?- \*\*Hours Logged:\*\* \d+'
+    $StatsPattern = '## 📊 Project Stats[\s\S]*?- \*\*Hours Logged:\*\* \d+'
     $StatsReplacement = @"
-## Project Stats
+## 📊 Project Stats
 - **Total Tasks:** $($ProjectStats.TotalTasks)
 - **Todo:** $($ProjectStats.TodoCount)
 - **In Progress:** $($ProjectStats.InProgressCount)
@@ -335,48 +502,71 @@ function Update-PlanFile {
 
     $PlanContent = $PlanContent -replace $StatsPattern, $StatsReplacement
 
-    # Create Kanban board
+    # Create Kanban board using proper Mermaid Kanban syntax
     $KanbanMermaid = @'
 ```mermaid
+---
+displayMode: compact
+---
+%%{
+  init: {
+    'theme': 'default',
+    'themeVariables': {
+      'cDoneColor': '#d0f0c0',
+      'cInProgressColor': '#b0e0e6',
+      'cToDoColor': '#ffe4e1'
+    }
+  }
+}%%
+
 kanban
 '@
 
+    # Add Todo tasks
+    $KanbanMermaid += "    Todo`n"
     foreach ($Task in $AllTasks | Where-Object { $_.Status -eq $TaskStatusTodo } | Sort-Object -Property Sequence) {
-        $KanbanMermaid += "    Todo `"$($Task.ID): $($Task.Title)`" `"Priority: $($Task.Priority)`" `"Due: $($Task.DueDate)`" `"Assigned: $($Task.AssignedTo)`" `"Progress: $($Task.Progress)%`"`n"
+        $KanbanMermaid += "        $($Task.ID): $($Task.Title)<br>Priority: $($Task.Priority)<br>Due: $($Task.DueDate)<br>Assigned: $($Task.AssignedTo)<br>Progress: $($Task.Progress)%`n"
     }
 
+    # Add In Progress tasks
+    $KanbanMermaid += "    In Progress`n"
     foreach ($Task in $AllTasks | Where-Object { $_.Status -eq $TaskStatusInProgress } | Sort-Object -Property Sequence) {
-        $KanbanMermaid += "    InProgress `"$($Task.ID): $($Task.Title)`" `"Priority: $($Task.Priority)`" `"Due: $($Task.DueDate)`" `"Assigned: $($Task.AssignedTo)`" `"Progress: $($Task.Progress)%`"`n"
+        $KanbanMermaid += "        $($Task.ID): $($Task.Title)<br>Priority: $($Task.Priority)<br>Due: $($Task.DueDate)<br>Assigned: $($Task.AssignedTo)<br>Progress: $($Task.Progress)%`n"
     }
 
+    # Add Done tasks
+    $KanbanMermaid += "    Done`n"
     foreach ($Task in $AllTasks | Where-Object { $_.Status -eq $TaskStatusDone } | Sort-Object -Property Sequence) {
-        $KanbanMermaid += "    Done `"$($Task.ID): $($Task.Title)`" `"Priority: $($Task.Priority)`" `"Due: $($Task.DueDate)`" `"Assigned: $($Task.AssignedTo)`" `"Progress: $($Task.Progress)%`"`n"
+        $KanbanMermaid += "        $($Task.ID): $($Task.Title)<br>Priority: $($Task.Priority)<br>Due: $($Task.DueDate)<br>Assigned: $($Task.AssignedTo)<br>Progress: $($Task.Progress)%`n"
     }
 
     $KanbanMermaid += '```'
 
     # Create task summary table
-    $TaskSummaryTable = "| ID | Status | Title | Priority | Due Date | Assigned To | Progress |\n|----|--------|-------|----------|----------|-------------|----------|\n"
+    $TaskSummaryTable = @"
+| ID | Status | Title | Priority | Due Date | Assigned To | Progress |
+|----|--------|-------|----------|----------|-------------|----------|
+"@
 
     foreach ($Task in $AllTasks | Sort-Object -Property Sequence) {
         $StatusIcon = switch ($Task.Status) {
-            $TaskStatusTodo { "[Todo]" }
-            $TaskStatusInProgress { "[In Progress]" }
-            $TaskStatusDone { "[Done]" }
+            $TaskStatusTodo { "📌 Todo" }
+            $TaskStatusInProgress { "🔨 In Progress" }
+            $TaskStatusDone { "✅ Done" }
         }
 
-        $TaskSummaryTable += "| $($Task.ID) | $StatusIcon | $($Task.Title) | $($Task.Priority) | $($Task.DueDate) | $($Task.AssignedTo) | $($Task.Progress)% |\n"
+        $TaskSummaryTable += "`n| $($Task.ID) | $StatusIcon | $($Task.Title) | $($Task.Priority) | $($Task.DueDate) | $($Task.AssignedTo) | $($Task.Progress)% |"
     }
 
     # Update Kanban board and task summary in plan.md
-    $KanbanPattern = '## Kanban Board[\s\S]*?## Task Summary[\s\S]*?\| ID \| Status \| Title \| Priority \| Due Date \| Assigned To \| Progress \|[\s\S]*?(?=##)'
+    $KanbanPattern = '## 📋 Kanban Board[\s\S]*?## 📊 Task Summary[\s\S]*?\| ID \| Status \| Title \| Priority \| Due Date \| Assigned To \| Progress \|[\s\S]*?(?=##)'
 
     $KanbanReplacement = @"
-## Kanban Board
+## 📋 Kanban Board
 
 $KanbanMermaid
 
-## Task Summary
+## 📊 Task Summary
 
 $TaskSummaryTable
 
@@ -385,14 +575,19 @@ $TaskSummaryTable
     $PlanContent = $PlanContent -replace $KanbanPattern, $KanbanReplacement
 
     # Update task dependencies table
-    $DependenciesTable = "| Task ID | Task Name | Depends On | Required By |\n|---------|-----------|------------|------------|\n"
-    foreach ($Task in $AllTasks | Sort-Object -Property Sequence) {
-        $DependenciesTable += "| $($Task.ID) | $($Task.Title) | $($Task.DependsOn) | $($Task.RequiredBy) |\n"
-    }
+    $DependenciesTable = @"
+| Task ID | Task Name | Depends On | Required By |
+|---------|-----------|------------|------------|
 
-    $DependenciesPattern = '## Task Dependencies[\s\S]*?\| Task ID \| Task Name \| Depends On \| Required By \|[\s\S]*?(?=##)'
+"@
+    foreach ($Task in $AllTasks | Sort-Object -Property Sequence) {
+        $DependenciesTable = $DependenciesTable.TrimEnd() + "`n| $($Task.ID) | $($Task.Title) | $($Task.DependsOn) | $($Task.RequiredBy) |"
+    }
+    $DependenciesTable += "`n"
+
+    $DependenciesPattern = '## 🔄 Task Dependencies[\s\S]*?\| Task ID \| Task Name \| Depends On \| Required By \|[\s\S]*?(?=##)'
     $DependenciesReplacement = @"
-## Task Dependencies
+## 🔄 Task Dependencies
 
 $DependenciesTable
 
@@ -400,14 +595,135 @@ $DependenciesTable
 
     $PlanContent = $PlanContent -replace $DependenciesPattern, $DependenciesReplacement
 
+    # Update Timeline (using Mermaid timeline syntax)
+    $TimelineMermaid = @'
+```mermaid
+timeline
+    title Project Timeline
+
+'@
+
+    # Group tasks by month based on due date
+    $TasksByMonth = @{}
+    $CurrentYear = (Get-Date).Year
+
+    foreach ($Task in $AllTasks) {
+        $DueDateObj = $null
+        $Year = $CurrentYear
+        $Month = "Unknown"
+
+        # Try to parse the due date
+        try {
+            if ($Task.DueDate -and [DateTime]::TryParse($Task.DueDate, [ref]$DueDateObj)) {
+                $Year = $DueDateObj.Year
+                $Month = $DueDateObj.ToString("MMMM")
+            } else {
+                # If parsing fails, use current month
+                $Month = (Get-Date).ToString("MMMM")
+            }
+        } catch {
+            # If parsing fails, use current month
+            $Month = (Get-Date).ToString("MMMM")
+        }
+
+        # Create year section if it doesn't exist
+        if (-not $TasksByMonth.ContainsKey($Year)) {
+            $TasksByMonth[$Year] = @{}
+        }
+
+        # Create month section if it doesn't exist
+        if (-not $TasksByMonth[$Year].ContainsKey($Month)) {
+            $TasksByMonth[$Year][$Month] = @()
+        }
+
+        # Add task to the appropriate month
+        $TasksByMonth[$Year][$Month] += $Task
+    }
+
+    # Add sections and tasks to the timeline
+    foreach ($Year in $TasksByMonth.Keys | Sort-Object) {
+        $TimelineMermaid += "    section $Year`n"
+
+        foreach ($Month in $TasksByMonth[$Year].Keys | ForEach-Object {
+            # Convert month names to numbers for sorting
+            $MonthNumber = switch ($_) {
+                "January" { "01" }
+                "February" { "02" }
+                "March" { "03" }
+                "April" { "04" }
+                "May" { "05" }
+                "June" { "06" }
+                "July" { "07" }
+                "August" { "08" }
+                "September" { "09" }
+                "October" { "10" }
+                "November" { "11" }
+                "December" { "12" }
+                default { "13" } # Unknown months at the end
+            }
+            [PSCustomObject]@{ Name = $_; SortOrder = $MonthNumber }
+        } | Sort-Object -Property SortOrder | Select-Object -ExpandProperty Name) {
+
+            # First task in the month gets the month name
+            $FirstTask = $true
+
+            # Group tasks by status for better organization
+            $DoneTasks = $TasksByMonth[$Year][$Month] | Where-Object { $_.Status -eq $TaskStatusDone }
+            $InProgressTasks = $TasksByMonth[$Year][$Month] | Where-Object { $_.Status -eq $TaskStatusInProgress }
+            $TodoTasks = $TasksByMonth[$Year][$Month] | Where-Object { $_.Status -eq $TaskStatusTodo }
+
+            # Process done tasks first
+            foreach ($Task in $DoneTasks) {
+                if ($FirstTask) {
+                    $TimelineMermaid += "        $Month : $($Task.ID): $($Task.Title) (Done)`n"
+                    $FirstTask = $false
+                } else {
+                    $TimelineMermaid += "                 : $($Task.ID): $($Task.Title) (Done)`n"
+                }
+            }
+
+            # Then in-progress tasks
+            foreach ($Task in $InProgressTasks) {
+                if ($FirstTask) {
+                    $TimelineMermaid += "        $Month : $($Task.ID): $($Task.Title) (In Progress)`n"
+                    $FirstTask = $false
+                } else {
+                    $TimelineMermaid += "                 : $($Task.ID): $($Task.Title) (In Progress)`n"
+                }
+            }
+
+            # Finally todo tasks
+            foreach ($Task in $TodoTasks) {
+                if ($FirstTask) {
+                    $TimelineMermaid += "        $Month : $($Task.ID): $($Task.Title) (Todo)`n"
+                    $FirstTask = $false
+                } else {
+                    $TimelineMermaid += "                 : $($Task.ID): $($Task.Title) (Todo)`n"
+                }
+            }
+        }
+    }
+
+    $TimelineMermaid += '```'
+
+    # Update Timeline in plan.md
+    $TimelinePattern = '## 📅 Timeline[\s\S]*?```mermaid[\s\S]*?```'
+    $TimelineReplacement = @"
+## 📅 Timeline
+
+$TimelineMermaid
+"@
+
+    $PlanContent = $PlanContent -replace $TimelinePattern, $TimelineReplacement
+
     # Update recent updates
     $CurrentDate = Get-Date -Format "yyyy-MM-dd"
-    $UpdatesPattern = '## Recent Updates[\s\S]*?(?=##|$)'
+    $UpdatesPattern = '## 📅 Recent Updates[\s\S]*?(?=##|$)'
     $UpdatesMatch = [regex]::Match($PlanContent, $UpdatesPattern).Value
     $NewUpdate = "- $CurrentDate - Updated plan.md with latest task statuses"
 
     if ($UpdatesMatch -notmatch [regex]::Escape($NewUpdate)) {
-        $UpdatesReplacement = $UpdatesMatch -replace '(## Recent Updates\r?\n)', "`$1$NewUpdate`n"
+        $UpdatesReplacement = $UpdatesMatch -replace '(## 📅 Recent Updates\r?\n)', "`$1`n$NewUpdate`n"
         $PlanContent = $PlanContent -replace [regex]::Escape($UpdatesMatch), $UpdatesReplacement
     }
 
@@ -582,22 +898,12 @@ function Reset-ProjectTasks {
         }
     }
 
-    # Create archive folder if it doesn't exist
+    # Ensure all required folders exist
+    Ensure-RequiredFolders
+
+    # Create archive date folder
     $ArchivePath = "project planning/archive"
     $ArchiveDateFolder = Join-Path -Path $ArchivePath -ChildPath (Get-Date -Format "yyyy-MM-dd")
-
-    if (-not (Test-Path -Path $ArchivePath)) {
-        try {
-            New-Item -Path $ArchivePath -ItemType Directory -Force | Out-Null
-            if (-not $Silent) {
-                Write-Host "Created archive folder: $ArchivePath" -ForegroundColor Green
-            }
-        }
-        catch {
-            Write-Error "Failed to create archive folder: $($_.Exception.Message)"
-            return $false
-        }
-    }
 
     # Create date-specific archive folder
     if (-not (Test-Path -Path $ArchiveDateFolder)) {
@@ -780,6 +1086,9 @@ function Show-Menu {
 # Main script logic
 $ScriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location -Path $ScriptPath
+
+# Ensure required folders exist
+Ensure-RequiredFolders
 
 # Handle silent mode
 if ($Silent) {
