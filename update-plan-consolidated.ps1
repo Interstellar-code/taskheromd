@@ -380,21 +380,27 @@ function Update-PlanFile {
     # Kanban Tasks
     $KanbanTodoTasks = ""
     ($AllTasks | Where-Object { $_.Status -eq $TaskStatusTodo } | Sort-Object -Property Sequence) | ForEach-Object {
-        $KanbanTodoTasks += "        $($_.ID) - $($_.Title) (Progress: $($_.Progress)%)`n" # Simpler format, 8 spaces indent
+        # Combine task details and metadata into a single task block
+        $TaskContent = "$($_.ID) - $($_.Title)`nPriority: $($_.Priority) | Due: $($_.DueDate) | Assigned: $($_.AssignedTo) | Progress: $($_.Progress)%"
+        $KanbanTodoTasks += "        task-$($_.ID)[$TaskContent]`n" # Use task ID as identifier and combine details in one block
     }
     $EscapedKanbanTodoTasks = $KanbanTodoTasks.TrimEnd().Replace('$', '$$')
     $PlanContent = $PlanContent -replace '\{\{KanbanTodoTasks\}\}', $EscapedKanbanTodoTasks
 
     $KanbanInProgressTasks = ""
     ($AllTasks | Where-Object { $_.Status -eq $TaskStatusInProgress } | Sort-Object -Property Sequence) | ForEach-Object {
-        $KanbanInProgressTasks += "        $($_.ID) - $($_.Title) (Progress: $($_.Progress)%)`n" # Simpler format, 8 spaces indent
+        # Combine task details and metadata into a single task block
+        $TaskContent = "$($_.ID) - $($_.Title)`nPriority: $($_.Priority) | Due: $($_.DueDate) | Assigned: $($_.AssignedTo) | Progress: $($_.Progress)%"
+        $KanbanInProgressTasks += "        task-$($_.ID)[$TaskContent]`n" # Use task ID as identifier and combine details in one block
     }
     $EscapedKanbanInProgressTasks = $KanbanInProgressTasks.TrimEnd().Replace('$', '$$')
     $PlanContent = $PlanContent -replace '\{\{KanbanInProgressTasks\}\}', $EscapedKanbanInProgressTasks
 
     $KanbanDoneTasks = ""
     ($AllTasks | Where-Object { $_.Status -eq $TaskStatusDone } | Sort-Object -Property Sequence) | ForEach-Object {
-        $KanbanDoneTasks += "        $($_.ID) - $($_.Title) (Progress: $($_.Progress)%)`n" # Simpler format, 8 spaces indent
+        # Combine task details and metadata into a single task block
+        $TaskContent = "$($_.ID) - $($_.Title)`nPriority: $($_.Priority) | Due: $($_.DueDate) | Assigned: $($_.AssignedTo) | Progress: 100%"
+        $KanbanDoneTasks += "        task-$($_.ID)[$TaskContent]`n" # Use task ID as identifier and combine details in one block
     }
     $EscapedKanbanDoneTasks = $KanbanDoneTasks.TrimEnd().Replace('$', '$$')
     $PlanContent = $PlanContent -replace '\{\{KanbanDoneTasks\}\}', $EscapedKanbanDoneTasks
