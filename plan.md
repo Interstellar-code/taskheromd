@@ -77,14 +77,7 @@ gantt
 
 ## 🔄 Task Dependencies
 
-| Task ID | Task Name | Depends On | Required By |
-|---------|-----------|------------|------------|
-| TASK-001 | Implement Zustand Subscription Store | None | TASK-002, TASK-004, TASK-005 |
-| TASK-002 | Create Subscription Edit Form | TASK-001 | TASK-005 |
-| TASK-003 | Implement Subscription Table UI | None | TASK-004, TASK-005 |
-| TASK-004 | Implement Subscription Listing Page | TASK-001, TASK-003 | None |
-| TASK-005 | Implement Subscription Actions | TASK-001, TASK-002, TASK-003 | None |
-
+| Task ID | Task Name | Depends On | Required By |\n|---------|-----------|------------|------------|\n| TASK-002 | Create Subscription Edit Form | TASK-005 | TASK-001 |\n| TASK-003 | Implement Subscription Table UI | TASK-004, TASK-005 |  |\n| TASK-005 | Implement Subscription Actions |  | TASK-001, TASK-002, TASK-003 |\n| TASK-001 | Implement Zustand Subscription Store | TASK-002, TASK-004 |  |\n| TASK-004 | Implement Subscription Listing Page |  | TASK-001, TASK-003 |\n
 ## 📋 Kanban Board
 
 ```mermaid
@@ -107,9 +100,18 @@ kanban
 | TASK-005 | 📌 Todo | Implement Subscription Actions | Medium | 2023-12-10 | Dev Team | 0% |
 
 ## 📅 Recent Updates
+- 2025-05-21 - Updated plan.md with latest task statuses
 - 2023-11-15 - Initial project plan created
 - 2023-11-15 - Added three sample tasks to demonstrate the Kanban system
 - 2023-11-15 - Enhanced task template with improved dependency tracking
 - 2023-11-15 - Added dependency graph and timeline visualizations
 - 2023-11-15 - Created two additional tasks (TASK-004 and TASK-005) to complete the dependency graph
+
+
+
+
+
+
+
+
 

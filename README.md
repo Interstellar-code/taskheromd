@@ -1,4 +1,4 @@
-# Project Planning and Documentation System
+# Project Planning and Documentation System - Taskheromd
 
 This repository contains a comprehensive Markdown-based project planning and documentation system.
 
@@ -16,10 +16,12 @@ This repository contains a comprehensive Markdown-based project planning and doc
   - `todo/` - Tasks that haven't been started yet
   - `inprogress/` - Tasks currently being worked on
   - `done/` - Completed tasks
+  - `archive/` - Archived tasks from previous project phases (created automatically when using the reset function)
 
 - `project templates/` - Additional project templates
 
 - `plan.md` - Main Kanban board with overview of all tasks
+- `update-plan-consolidated.ps1` - Consolidated PowerShell script with interactive menu for managing tasks
 - `update-plan.ps1` - PowerShell script to update the plan.md file
 - `update-plan-kanban.ps1` - PowerShell script to update the plan.md file with Kanban format
 
@@ -39,7 +41,8 @@ This repository contains a comprehensive Markdown-based project planning and doc
 3. **Task Progression**
    - Move tasks between folders (`todo/` → `inprogress/` → `done/`) as they progress
    - Update each task's status and details as work progresses
-   - Run the update scripts to keep the main plan.md file in sync with the task files
+   - Run the consolidated script to keep the main plan.md file in sync with the task files
+   - Use the reset option when you want to archive all tasks and start fresh
 
 4. **Task Naming Convention**
    - Use the format: `TASK-XXX-descriptive-name.md`
@@ -63,6 +66,23 @@ Each task in the board includes:
 
 ### Automation Scripts
 The PowerShell scripts automate the maintenance of the plan.md file:
+
+#### Consolidated Script (Recommended)
+- `update-plan-consolidated.ps1` - All-in-one script with interactive menu and silent mode options:
+  - Update plan.md with current task statuses
+  - Generate project reports
+  - List tasks (all, by status, by assignee)
+  - Reset project by archiving all tasks
+
+  **Usage:**
+  - Interactive mode: `.\update-plan-consolidated.ps1`
+  - Silent mode examples:
+    - Update plan: `.\update-plan-consolidated.ps1 -Silent -UpdatePlan`
+    - Generate report: `.\update-plan-consolidated.ps1 -Silent -GenerateReport -ReportPath "custom-report.md"`
+    - List tasks: `.\update-plan-consolidated.ps1 -Silent -ListTasks -TaskStatus "todo" -AssignedTo "John"`
+    - Reset project: `.\update-plan-consolidated.ps1 -Silent -ResetTasks`
+
+#### Legacy Scripts
 - `update-plan.ps1` - Updates the plan.md file based on task files in the folders
 - `update-plan-kanban.ps1` - Updates the plan.md file with a Kanban board format
 
@@ -107,6 +127,8 @@ The `project docs/` folder contains templates for comprehensive project document
   - Technical constraints
   - Performance optimization patterns
 
+These project documentation templates can be updated using AI agents for your project.
+
 ### Task Template Fields
 The task template includes:
 
@@ -130,14 +152,15 @@ The task template includes:
 
 1. **Documentation First**: Start with comprehensive project documentation using the templates
 2. **Keep Tasks Small**: Break down work into small, focused tasks
-3. **Automate Updates**: Use the provided scripts to keep the plan.md file in sync
+3. **Automate Updates**: Use the consolidated script to keep the plan.md file in sync and generate reports
 4. **Consistent Formatting**: Follow the templates for all documentation and task files
 5. **Clear Criteria**: Include detailed acceptance criteria for all tasks
 6. **Track Dependencies**: Document and monitor dependencies between tasks
 7. **Regular Reviews**: Periodically review and update documentation and task statuses
 8. **Use Tags**: Categorize tasks with tags for better organization and filtering
 9. **Evolve Documentation**: Update project documentation as the project evolves
-10. **Customize Templates**: Adapt the templates to fit your specific project needs
+10. **Archive Regularly**: Use the reset function to archive completed project phases
+11. **Customize Templates**: Adapt the templates to fit your specific project needs
 
 ## 📚 Getting Started
 
@@ -148,11 +171,12 @@ The task template includes:
 2. **Create Your Task Structure**:
    - Set up your task template in `project templates/`
    - Create initial tasks in `project planning/todo/`
-   - Run the update scripts to generate your initial plan.md
+   - Run the consolidated script (`.\update-plan-consolidated.ps1`) to generate your initial plan.md
 
 3. **Start Working**:
    - Begin working on tasks according to priority
    - Move tasks through the workflow as they progress
-   - Keep documentation and plan.md updated
+   - Use the consolidated script to manage tasks, generate reports, and keep plan.md updated
+   - Archive completed project phases using the reset function when needed
 
 This project planning and documentation system is designed to be flexible and adaptable to different types of projects. Feel free to modify it to better suit your specific needs.

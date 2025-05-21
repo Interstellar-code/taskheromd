@@ -5,7 +5,7 @@
 - **Completed Tasks:** 14 (280 percent)
 - **In Progress Tasks:** 14 (280 percent)
 - **Todo Tasks:** 3 (60 percent)
-- **Overdue Tasks:** 0
+- **Overdue Tasks:** 4
 - **Estimated Total Hours:** 57
 - **Hours Logged:** 20
 
@@ -16,7 +16,10 @@
 - TASK-002: Create Subscription Edit Form (43 percent complete)
 
 ## Blockers & Risks
-- No major blockers or risks identified at this time
+- TASK-001 is overdue by 538 days (Due: 2023-11-30)
+- TASK-004 is overdue by 533 days (Due: 2023-12-05)
+- TASK-005 is overdue by 528 days (Due: 2023-12-10)
+- TASK-002 is overdue by 543 days (Due: 2023-11-25)
 
 ## Upcoming Deadlines
 | Task ID | Title | Due Date | Assigned To | Status | Progress |

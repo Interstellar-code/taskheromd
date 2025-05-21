@@ -6,18 +6,22 @@ param (
     [switch]$UpdatePlan,
     [switch]$GenerateReport,
     [switch]$ListTasks,
+    [switch]$ResetTasks,
     [string]$TaskStatus = "all",
     [string]$AssignedTo = "",
     [string]$ReportPath = "project-report-$(Get-Date -Format 'yyyy-MM-dd').md"
 )
 
+# Define constants
+$TaskStatusTodo = "Todo"
+$TaskStatusInProgress = "InProgress"
+$TaskStatusDone = "Done"
+
 # Function to calculate task progress based on acceptance criteria
 function Get-TaskProgress {
     param (
-        [string]$TaskPath
+        [string]$Content # Raw content of the task file
     )
-
-    $Content = Get-Content -Path $TaskPath -Raw
     $TotalCriteria = 0
     $CompletedCriteria = 0
 
@@ -49,10 +53,8 @@ function Get-TaskProgress {
 # Function to get task dependencies
 function Get-TaskDependencies {
     param (
-        [string]$TaskPath
+        [string]$Content # Raw content of the task file
     )
-
-    $Content = Get-Content -Path $TaskPath -Raw
     $RequiredBy = @()
     $DependsOn = @()
 
@@ -89,10 +91,8 @@ function Get-TaskDependencies {
 # Function to get task metadata
 function Get-TaskMetadata {
     param (
-        [string]$TaskPath
+        [string]$Content # Raw content of the task file
     )
-
-    $Content = Get-Content -Path $TaskPath -Raw
     $Metadata = @{}
 
     # Extract task ID and title
@@ -156,9 +156,13 @@ function Get-TaskMetadata {
 
 # Function to get all tasks
 function Get-AllTasks {
-    $TodoTasks = Get-ChildItem -Path "project planning/todo" -Filter "TASK-*.md" -ErrorAction SilentlyContinue
-    $InProgressTasks = Get-ChildItem -Path "project planning/inprogress" -Filter "TASK-*.md" -ErrorAction SilentlyContinue
-    $DoneTasks = Get-ChildItem -Path "project planning/done" -Filter "TASK-*.md" -ErrorAction SilentlyContinue
+    $TodoPath = "project planning/todo"
+    $InProgressPath = "project planning/inprogress"
+    $DonePath = "project planning/done"
+
+    $TodoTasks = if (Test-Path $TodoPath) { Get-ChildItem -Path $TodoPath -Filter "TASK-*.md" -ErrorAction SilentlyContinue } else { @() }
+    $InProgressTasks = if (Test-Path $InProgressPath) { Get-ChildItem -Path $InProgressPath -Filter "TASK-*.md" -ErrorAction SilentlyContinue } else { @() }
+    $DoneTasks = if (Test-Path $DonePath) { Get-ChildItem -Path $DonePath -Filter "TASK-*.md" -ErrorAction SilentlyContinue } else { @() }
 
     $AllTasks = @()
     $TotalEstimatedHours = 0
@@ -166,16 +170,23 @@ function Get-AllTasks {
 
     # Process todo tasks
     foreach ($Task in $TodoTasks) {
-        $Metadata = Get-TaskMetadata -TaskPath $Task.FullName
-        $Progress = Get-TaskProgress -TaskPath $Task.FullName
-        $Dependencies = Get-TaskDependencies -TaskPath $Task.FullName
+        try {
+            $TaskContent = Get-Content -Path $Task.FullName -Raw -ErrorAction Stop
+            $Metadata = Get-TaskMetadata -Content $TaskContent
+            $Progress = Get-TaskProgress -Content $TaskContent
+            $Dependencies = Get-TaskDependencies -Content $TaskContent
+        }
+        catch {
+            Write-Warning "Could not read task file $($Task.FullName): $($_.Exception.Message)"
+            continue # Skip to next task
+        }
 
         $TaskInfo = @{
             ID = $Metadata.ID
             Title = $Metadata.Title
             Priority = $Metadata.Priority
             DueDate = $Metadata.DueDate
-            Status = "Todo"
+            Status = $TaskStatusTodo
             AssignedTo = $Metadata.AssignedTo
             Sequence = $Metadata.Sequence
             Tags = $Metadata.Tags
@@ -194,16 +205,23 @@ function Get-AllTasks {
 
     # Process in progress tasks
     foreach ($Task in $InProgressTasks) {
-        $Metadata = Get-TaskMetadata -TaskPath $Task.FullName
-        $Progress = Get-TaskProgress -TaskPath $Task.FullName
-        $Dependencies = Get-TaskDependencies -TaskPath $Task.FullName
+        try {
+            $TaskContent = Get-Content -Path $Task.FullName -Raw -ErrorAction Stop
+            $Metadata = Get-TaskMetadata -Content $TaskContent
+            $Progress = Get-TaskProgress -Content $TaskContent
+            $Dependencies = Get-TaskDependencies -Content $TaskContent
+        }
+        catch {
+            Write-Warning "Could not read task file $($Task.FullName): $($_.Exception.Message)"
+            continue # Skip to next task
+        }
 
         $TaskInfo = @{
             ID = $Metadata.ID
             Title = $Metadata.Title
             Priority = $Metadata.Priority
             DueDate = $Metadata.DueDate
-            Status = "InProgress"
+            Status = $TaskStatusInProgress
             AssignedTo = $Metadata.AssignedTo
             Sequence = $Metadata.Sequence
             Tags = $Metadata.Tags
@@ -222,15 +240,22 @@ function Get-AllTasks {
 
     # Process done tasks
     foreach ($Task in $DoneTasks) {
-        $Metadata = Get-TaskMetadata -TaskPath $Task.FullName
-        $Dependencies = Get-TaskDependencies -TaskPath $Task.FullName
+        try {
+            $TaskContent = Get-Content -Path $Task.FullName -Raw -ErrorAction Stop
+            $Metadata = Get-TaskMetadata -Content $TaskContent
+            $Dependencies = Get-TaskDependencies -Content $TaskContent
+        }
+        catch {
+            Write-Warning "Could not read task file $($Task.FullName): $($_.Exception.Message)"
+            continue # Skip to next task
+        }
 
         $TaskInfo = @{
             ID = $Metadata.ID
             Title = $Metadata.Title
             Priority = $Metadata.Priority
             DueDate = $Metadata.DueDate
-            Status = "Done"
+            Status = $TaskStatusDone
             AssignedTo = $Metadata.AssignedTo
             Sequence = $Metadata.Sequence
             Tags = $Metadata.Tags
@@ -255,18 +280,43 @@ function Get-AllTasks {
 }
 
 # Function to update plan.md
+function Get-ProjectStats {
+    param (
+        [array]$AllTasks
+    )
+
+    $TotalTasks = $AllTasks.Count
+    $TodoCount = ($AllTasks | Where-Object { $_.Status -eq $TaskStatusTodo }).Count
+    $InProgressCount = ($AllTasks | Where-Object { $_.Status -eq $TaskStatusInProgress }).Count
+    $DoneCount = ($AllTasks | Where-Object { $_.Status -eq $TaskStatusDone }).Count
+    $CompletionRate = if ($TotalTasks -gt 0) { [math]::Round(($DoneCount / $TotalTasks) * 100) } else { 0 }
+    $TotalEstimatedHours = 0
+    $TotalActualHours = 0
+
+    foreach ($Task in $AllTasks) {
+        if ($null -ne $Task.EstimatedHours) {
+            $TotalEstimatedHours += $Task.EstimatedHours
+        }
+        if ($null -ne $Task.ActualHours) {
+            $TotalActualHours += $Task.ActualHours
+        }
+    }
+
+    return @{
+        TotalTasks = $TotalTasks
+        TodoCount = $TodoCount
+        InProgressCount = $InProgressCount
+        DoneCount = $DoneCount
+        CompletionRate = $CompletionRate
+        TotalEstimatedHours = $TotalEstimatedHours
+        TotalActualHours = $TotalActualHours
+    }
+}
+
 function Update-PlanFile {
     $TaskData = Get-AllTasks
     $AllTasks = $TaskData.Tasks
-    $TotalEstimatedHours = $TaskData.TotalEstimatedHours
-    $TotalActualHours = $TaskData.TotalActualHours
-
-    # Update project stats
-    $TotalTasks = $AllTasks.Count
-    $TodoCount = ($AllTasks | Where-Object { $_.Status -eq "Todo" }).Count
-    $InProgressCount = ($AllTasks | Where-Object { $_.Status -eq "InProgress" }).Count
-    $DoneCount = ($AllTasks | Where-Object { $_.Status -eq "Done" }).Count
-    $CompletionRate = if ($TotalTasks -gt 0) { [math]::Round(($DoneCount / $TotalTasks) * 100) } else { 0 }
+    $ProjectStats = Get-ProjectStats -AllTasks $AllTasks
 
     $PlanContent = Get-Content -Path "plan.md" -Raw
 
@@ -274,13 +324,13 @@ function Update-PlanFile {
     $StatsPattern = '## Project Stats[\s\S]*?- \*\*Hours Logged:\*\* \d+'
     $StatsReplacement = @"
 ## Project Stats
-- **Total Tasks:** $TotalTasks
-- **Todo:** $TodoCount
-- **In Progress:** $InProgressCount
-- **Done:** $DoneCount
-- **Completion Rate:** $CompletionRate%
-- **Estimated Total Hours:** $TotalEstimatedHours
-- **Hours Logged:** $TotalActualHours
+- **Total Tasks:** $($ProjectStats.TotalTasks)
+- **Todo:** $($ProjectStats.TodoCount)
+- **In Progress:** $($ProjectStats.InProgressCount)
+- **Done:** $($ProjectStats.DoneCount)
+- **Completion Rate:** $($ProjectStats.CompletionRate)%
+- **Estimated Total Hours:** $($ProjectStats.TotalEstimatedHours)
+- **Hours Logged:** $($ProjectStats.TotalActualHours)
 "@
 
     $PlanContent = $PlanContent -replace $StatsPattern, $StatsReplacement
@@ -291,15 +341,15 @@ function Update-PlanFile {
 kanban
 '@
 
-    foreach ($Task in $AllTasks | Where-Object { $_.Status -eq "Todo" } | Sort-Object -Property Sequence) {
+    foreach ($Task in $AllTasks | Where-Object { $_.Status -eq $TaskStatusTodo } | Sort-Object -Property Sequence) {
         $KanbanMermaid += "    Todo `"$($Task.ID): $($Task.Title)`" `"Priority: $($Task.Priority)`" `"Due: $($Task.DueDate)`" `"Assigned: $($Task.AssignedTo)`" `"Progress: $($Task.Progress)%`"`n"
     }
 
-    foreach ($Task in $AllTasks | Where-Object { $_.Status -eq "InProgress" } | Sort-Object -Property Sequence) {
+    foreach ($Task in $AllTasks | Where-Object { $_.Status -eq $TaskStatusInProgress } | Sort-Object -Property Sequence) {
         $KanbanMermaid += "    InProgress `"$($Task.ID): $($Task.Title)`" `"Priority: $($Task.Priority)`" `"Due: $($Task.DueDate)`" `"Assigned: $($Task.AssignedTo)`" `"Progress: $($Task.Progress)%`"`n"
     }
 
-    foreach ($Task in $AllTasks | Where-Object { $_.Status -eq "Done" } | Sort-Object -Property Sequence) {
+    foreach ($Task in $AllTasks | Where-Object { $_.Status -eq $TaskStatusDone } | Sort-Object -Property Sequence) {
         $KanbanMermaid += "    Done `"$($Task.ID): $($Task.Title)`" `"Priority: $($Task.Priority)`" `"Due: $($Task.DueDate)`" `"Assigned: $($Task.AssignedTo)`" `"Progress: $($Task.Progress)%`"`n"
     }
 
@@ -310,9 +360,9 @@ kanban
 
     foreach ($Task in $AllTasks | Sort-Object -Property Sequence) {
         $StatusIcon = switch ($Task.Status) {
-            "Todo" { "[Todo]" }
-            "InProgress" { "[In Progress]" }
-            "Done" { "[Done]" }
+            $TaskStatusTodo { "[Todo]" }
+            $TaskStatusInProgress { "[In Progress]" }
+            $TaskStatusDone { "[Done]" }
         }
 
         $TaskSummaryTable += "| $($Task.ID) | $StatusIcon | $($Task.Title) | $($Task.Priority) | $($Task.DueDate) | $($Task.AssignedTo) | $($Task.Progress)% |\n"
@@ -362,13 +412,17 @@ $DependenciesTable
     }
 
     # Save updated plan.md
-    Set-Content -Path "plan.md" -Value $PlanContent
-
-    if (-not $Silent) {
-        Write-Host "Plan.md has been updated successfully!" -ForegroundColor Green
+    try {
+        Set-Content -Path "plan.md" -Value $PlanContent -ErrorAction Stop
+        if (-not $Silent) {
+            Write-Host "Plan.md has been updated successfully!" -ForegroundColor Green
+        }
+        return $true
     }
-
-    return $true
+    catch {
+        Write-Error "Failed to update plan.md: $($_.Exception.Message)"
+        return $false
+    }
 }
 
 # Function to generate a project report
@@ -379,30 +433,31 @@ function New-ProjectReport {
 
     $TaskData = Get-AllTasks
     $AllTasks = $TaskData.Tasks
-    $TotalEstimatedHours = $TaskData.TotalEstimatedHours
-    $TotalActualHours = $TaskData.TotalActualHours
+    $ProjectStats = Get-ProjectStats -AllTasks $AllTasks
 
-    # Calculate project stats
-    $TotalTasks = $AllTasks.Count
-    $TodoCount = ($AllTasks | Where-Object { $_.Status -eq "Todo" }).Count
-    $InProgressCount = ($AllTasks | Where-Object { $_.Status -eq "InProgress" }).Count
-    $DoneCount = ($AllTasks | Where-Object { $_.Status -eq "Done" }).Count
-    $CompletionRate = if ($TotalTasks -gt 0) { [math]::Round(($DoneCount / $TotalTasks) * 100) } else { 0 }
+    # Use stats from Get-ProjectStats
+    $TotalTasks = $ProjectStats.TotalTasks
+    $TodoCount = $ProjectStats.TodoCount
+    $InProgressCount = $ProjectStats.InProgressCount
+    $DoneCount = $ProjectStats.DoneCount
+    $CompletionRate = $ProjectStats.CompletionRate
+    $TotalEstimatedHours = $ProjectStats.TotalEstimatedHours
+    $TotalActualHours = $ProjectStats.TotalActualHours
 
     # Find overdue tasks
     $Today = Get-Date
     $OverdueTasks = $AllTasks | Where-Object {
-        $_.Status -ne "Done" -and
-        [DateTime]::TryParse($_.DueDate, [ref]$null) -and
-        [DateTime]::Parse($_.DueDate) -lt $Today
+        $_.Status -ne $TaskStatusDone -and
+        $null -ne ($dueDate = $_.DueDate -as [DateTime]) -and
+        $dueDate -lt $Today
     }
 
     # Find upcoming deadlines
     $UpcomingDeadlines = $AllTasks | Where-Object {
-        $_.Status -ne "Done" -and
-        [DateTime]::TryParse($_.DueDate, [ref]$null) -and
-        [DateTime]::Parse($_.DueDate) -ge $Today -and
-        [DateTime]::Parse($_.DueDate) -le $Today.AddDays(14)
+        $_.Status -ne $TaskStatusDone -and
+        $null -ne ($dueDate = $_.DueDate -as [DateTime]) -and
+        $dueDate -ge $Today -and
+        $dueDate -le $Today.AddDays(14)
     } | Sort-Object -Property DueDate
 
     # Generate report content
@@ -423,7 +478,7 @@ function New-ProjectReport {
     $ReportContent += "## Recent Accomplishments`n"
 
     # Add recent accomplishments
-    $RecentDoneTasks = $AllTasks | Where-Object { $_.Status -eq "Done" } | Sort-Object -Property { [DateTime]::Parse($_.DueDate) } -Descending | Select-Object -First 3
+    $RecentDoneTasks = $AllTasks | Where-Object { $_.Status -eq $TaskStatusDone } | Sort-Object -Property { [DateTime]::Parse($_.DueDate) } -Descending | Select-Object -First 3
 
     if ($RecentDoneTasks.Count -gt 0) {
         foreach ($Task in $RecentDoneTasks) {
@@ -438,7 +493,7 @@ function New-ProjectReport {
 
     # Add current work
     if ($InProgressCount -gt 0) {
-        foreach ($Task in $AllTasks | Where-Object { $_.Status -eq "InProgress" }) {
+        foreach ($Task in $AllTasks | Where-Object { $_.Status -eq $TaskStatusInProgress }) {
             $ReportContent += "- $($Task.ID): $($Task.Title) ($($Task.Progress) percent complete)`n"
         }
     }
@@ -499,13 +554,117 @@ function New-ProjectReport {
     $ReportContent += "- Update task statuses regularly`n"
 
     # Save report
-    Set-Content -Path $OutputPath -Value $ReportContent
+    try {
+        Set-Content -Path $OutputPath -Value $ReportContent -ErrorAction Stop
+        if (-not $Silent) {
+            Write-Host "Project report has been generated: $OutputPath" -ForegroundColor Green
+        }
+        return $OutputPath
+    }
+    catch {
+        Write-Error "Failed to generate report: $($_.Exception.Message)"
+        return $null
+    }
+}
 
-    if (-not $Silent) {
-        Write-Host "Project report has been generated: $OutputPath" -ForegroundColor Green
+# Function to reset project tasks by moving them to archive
+function Reset-ProjectTasks {
+    param (
+        [switch]$Force
+    )
+
+    # Confirm with user unless Force is specified
+    if (-not $Force -and -not $Silent) {
+        $confirmation = Read-Host "WARNING: This will move all tasks to the archive folder. Are you sure? (y/n)"
+        if ($confirmation -ne 'y') {
+            Write-Host "Operation cancelled." -ForegroundColor Yellow
+            return $false
+        }
     }
 
-    return $OutputPath
+    # Create archive folder if it doesn't exist
+    $ArchivePath = "project planning/archive"
+    $ArchiveDateFolder = Join-Path -Path $ArchivePath -ChildPath (Get-Date -Format "yyyy-MM-dd")
+
+    if (-not (Test-Path -Path $ArchivePath)) {
+        try {
+            New-Item -Path $ArchivePath -ItemType Directory -Force | Out-Null
+            if (-not $Silent) {
+                Write-Host "Created archive folder: $ArchivePath" -ForegroundColor Green
+            }
+        }
+        catch {
+            Write-Error "Failed to create archive folder: $($_.Exception.Message)"
+            return $false
+        }
+    }
+
+    # Create date-specific archive folder
+    if (-not (Test-Path -Path $ArchiveDateFolder)) {
+        try {
+            New-Item -Path $ArchiveDateFolder -ItemType Directory -Force | Out-Null
+            if (-not $Silent) {
+                Write-Host "Created archive date folder: $ArchiveDateFolder" -ForegroundColor Green
+            }
+        }
+        catch {
+            Write-Error "Failed to create archive date folder: $($_.Exception.Message)"
+            return $false
+        }
+    }
+
+    # Get all tasks
+    $TaskData = Get-AllTasks
+    $AllTasks = $TaskData.Tasks
+
+    if ($AllTasks.Count -eq 0) {
+        if (-not $Silent) {
+            Write-Host "No tasks found to archive." -ForegroundColor Yellow
+        }
+        return $true
+    }
+
+    $ArchivedCount = 0
+    $ErrorCount = 0
+
+    # Move all tasks to archive
+    foreach ($Task in $AllTasks) {
+        $TaskFile = $Task.FilePath
+        $TaskFileName = Split-Path -Path $TaskFile -Leaf
+        $DestinationFile = Join-Path -Path $ArchiveDateFolder -ChildPath $TaskFileName
+
+        try {
+            # Copy the file to archive
+            Copy-Item -Path $TaskFile -Destination $DestinationFile -Force
+
+            # Delete the original file
+            Remove-Item -Path $TaskFile -Force
+
+            $ArchivedCount++
+        }
+        catch {
+            Write-Error "Failed to archive task $($Task.ID): $($_.Exception.Message)"
+            $ErrorCount++
+        }
+    }
+
+    # Update plan.md to reflect empty project
+    try {
+        Update-PlanFile
+    }
+    catch {
+        Write-Error "Failed to update plan.md after archiving tasks: $($_.Exception.Message)"
+    }
+
+    if (-not $Silent) {
+        Write-Host "Project reset complete." -ForegroundColor Green
+        Write-Host "Archived $ArchivedCount tasks to $ArchiveDateFolder" -ForegroundColor Green
+        if ($ErrorCount -gt 0) {
+            Write-Host "Encountered $ErrorCount errors during archiving." -ForegroundColor Red
+        }
+    }
+
+    return ($ErrorCount -eq 0)
 }
 
 # Function to list tasks
@@ -520,10 +679,10 @@ function Get-TaskList {
 
     # Filter tasks by status
     $FilteredTasks = switch ($Status.ToLower()) {
-        "todo" { $AllTasks | Where-Object { $_.Status -eq "Todo" } }
-        "inprogress" { $AllTasks | Where-Object { $_.Status -eq "InProgress" } }
-        "done" { $AllTasks | Where-Object { $_.Status -eq "Done" } }
-        "open" { $AllTasks | Where-Object { $_.Status -ne "Done" } }
+        "todo" { $AllTasks | Where-Object { $_.Status -eq $TaskStatusTodo } }
+        "inprogress" { $AllTasks | Where-Object { $_.Status -eq $TaskStatusInProgress } }
+        "done" { $AllTasks | Where-Object { $_.Status -eq $TaskStatusDone } }
+        "open" { $AllTasks | Where-Object { $_.Status -ne $TaskStatusDone } }
         default { $AllTasks }
     }
 
@@ -552,11 +711,34 @@ function Show-TaskList {
     # Create a formatted table
     $TaskTable = @()
 
+    # Count tasks by status
+    $TaskStatusCounts = @{
+        "$TaskStatusTodo" = 0
+        "$TaskStatusInProgress" = 0
+        "$TaskStatusDone" = 0
+        "Other" = 0
+    }
+
     foreach ($Task in $Tasks) {
+        # Count tasks by status
+        if ($Task.Status -eq $TaskStatusTodo) {
+            $TaskStatusCounts["$TaskStatusTodo"]++
+        }
+        elseif ($Task.Status -eq $TaskStatusInProgress) {
+            $TaskStatusCounts["$TaskStatusInProgress"]++
+        }
+        elseif ($Task.Status -eq $TaskStatusDone) {
+            $TaskStatusCounts["$TaskStatusDone"]++
+        }
+        else {
+            $TaskStatusCounts["Other"]++
+        }
+
         $StatusIcon = switch ($Task.Status) {
-            "Todo" { "[T]" }
-            "InProgress" { "[I]" }
-            "Done" { "[D]" }
+            $TaskStatusTodo { "[T]" }
+            $TaskStatusInProgress { "[I]" }
+            $TaskStatusDone { "[D]" }
+            default { "[?]" }
         }
 
         $TaskObj = [PSCustomObject]@{
@@ -577,11 +759,7 @@ function Show-TaskList {
 
     # Display summary
     Write-Host "Total: $($Tasks.Count) tasks" -ForegroundColor Cyan
-    $TodoCount = ($Tasks | Where-Object { $_.Status -eq "Todo" }).Count
-    $InProgressCount = ($Tasks | Where-Object { $_.Status -eq "InProgress" }).Count
-    $DoneCount = ($Tasks | Where-Object { $_.Status -eq "Done" }).Count
-
-    Write-Host "Todo: $TodoCount | In Progress: $InProgressCount | Done: $DoneCount" -ForegroundColor Cyan
+    Write-Host "Todo: $($TaskStatusCounts["$TaskStatusTodo"]) | In Progress: $($TaskStatusCounts["$TaskStatusInProgress"]) | Done: $($TaskStatusCounts["$TaskStatusDone"])" -ForegroundColor Cyan
 }
 
 # Function to show interactive menu
@@ -594,7 +772,8 @@ function Show-Menu {
     Write-Host "4: List open tasks (Todo + In Progress)" -ForegroundColor White
     Write-Host "5: List tasks by status" -ForegroundColor White
     Write-Host "6: List tasks by assignee" -ForegroundColor White
-    Write-Host "7: Exit" -ForegroundColor White
+    Write-Host "7: Reset project (archive all tasks)" -ForegroundColor Red
+    Write-Host "8: Exit" -ForegroundColor White
     Write-Host "=======================================" -ForegroundColor Cyan
 }
 
@@ -604,6 +783,10 @@ Set-Location -Path $ScriptPath
 
 # Handle silent mode
 if ($Silent) {
+    if ($ResetTasks) {
+        Reset-ProjectTasks -Force
+    }
+
     if ($UpdatePlan) {
         Update-PlanFile
     }
@@ -675,6 +858,10 @@ while (-not $exit) {
             Read-Host "Press Enter to continue"
         }
         "7" {
+            Reset-ProjectTasks
+            Read-Host "Press Enter to continue"
+        }
+        "8" {
             $exit = $true
         }
         default {
