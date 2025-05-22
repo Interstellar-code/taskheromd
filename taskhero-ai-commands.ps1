@@ -401,6 +401,8 @@ function New-AIGeneratedDocumentation {
             $Header + $Documentation | Set-Content -Path $OutputPath
             
             Write-Host "AI-generated documentation saved to $OutputPath" -ForegroundColor Green
+            Write-Host "`nPress Enter to continue..." -ForegroundColor Cyan
+            Read-Host | Out-Null
             return $true
         }
         else {
@@ -503,6 +505,8 @@ function Get-AITaskSuggestions {
                 $Header + $Suggestions | Set-Content -Path $SuggestionsPath
                 
                 Write-Host "Suggestions saved to $SuggestionsPath" -ForegroundColor Green
+                Write-Host "`nPress Enter to continue..." -ForegroundColor Cyan
+                Read-Host | Out-Null
             }
             
             return $true

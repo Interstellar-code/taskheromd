@@ -1572,7 +1572,8 @@ while (-not $exitLoop) {
         "2" {
             $InteractiveReportPath = "project-report-$(Get-Date -Format 'yyyy-MM-dd').md" # Use a local var for interactive mode
             New-ProjectReport -OutputPath $InteractiveReportPath
-            Show-CountdownTimer -Message "Returning to main menu"
+            Write-Host "`nPress Enter to return to main menu..." -ForegroundColor Cyan
+            Read-Host | Out-Null
         }
         "3" {
             # Show TaskHero Tasks sub-menu
@@ -1585,12 +1586,14 @@ while (-not $exitLoop) {
                     "1" {
                         $AllTasksInteractive = Get-TaskList
                         Show-TaskList -Tasks $AllTasksInteractive
-                        Show-CountdownTimer -Message "Returning to tasks menu"
+                        Write-Host "`nPress Enter to return to tasks menu..." -ForegroundColor Cyan
+                        Read-Host | Out-Null
                     }
                     "2" {
                         $OpenTasksInteractive = Get-TaskList -Status "open"
                         Show-TaskList -Tasks $OpenTasksInteractive
-                        Show-CountdownTimer -Message "Returning to tasks menu"
+                        Write-Host "`nPress Enter to return to tasks menu..." -ForegroundColor Cyan
+                        Read-Host | Out-Null
                     }
                     "3" {
                         Clear-Host
@@ -1611,13 +1614,15 @@ while (-not $exitLoop) {
 
                         $TasksByStatusInteractive = Get-TaskList -Status $statusToFilterInteractive
                         Show-TaskList -Tasks $TasksByStatusInteractive
-                        Show-CountdownTimer -Message "Returning to tasks menu"
+                        Write-Host "`nPress Enter to return to tasks menu..." -ForegroundColor Cyan
+                        Read-Host | Out-Null
                     }
                     "4" {
                         $assigneeInteractive = Read-Host "Enter assignee name (or part of name)"
                         $TasksByAssigneeInteractive = Get-TaskList -AssignedTo $assigneeInteractive
                         Show-TaskList -Tasks $TasksByAssigneeInteractive
-                        Show-CountdownTimer -Message "Returning to tasks menu"
+                        Write-Host "`nPress Enter to return to tasks menu..." -ForegroundColor Cyan
+                        Read-Host | Out-Null
                     }
                     "5" {
                         # Mark task as done
@@ -1660,11 +1665,13 @@ while (-not $exitLoop) {
                         }
                         "2" {
                             New-AIGeneratedDocumentation -UseCodebase:$false
-                            Show-CountdownTimer -Message "Returning to AI menu"
+                            Write-Host "`nPress Enter to return to AI menu..." -ForegroundColor Cyan
+                            Read-Host | Out-Null
                         }
                         "3" {
                             New-AIGeneratedDocumentation -UseCodebase:$true
-                            Show-CountdownTimer -Message "Returning to AI menu"
+                            Write-Host "`nPress Enter to return to AI menu..." -ForegroundColor Cyan
+                            Read-Host | Out-Null
                         }
                         "4" {
                             Clear-Host
@@ -1689,7 +1696,8 @@ while (-not $exitLoop) {
                             }
                             
                             Get-AITaskSuggestions -TaskID $SelectedTaskID
-                            Show-CountdownTimer -Message "Returning to AI menu"
+                            Write-Host "`nPress Enter to return to AI menu..." -ForegroundColor Cyan
+                            Read-Host | Out-Null
                         }
                         "0" {
                             $aiExitLoop = $true
