@@ -134,6 +134,11 @@ function Get-TaskMetadata {
         if ($MetadataSection -match "- \*\*Assigned to:\*\* (.+)") {
             $Metadata.AssignedTo = $matches[1]
         }
+        
+        # Extract task type
+        if ($MetadataSection -match "- \*\*Task Type:\*\* (.+)") {
+            $Metadata.TaskType = $matches[1]
+        }
 
         # Extract sequence
         if ($MetadataSection -match "- \*\*Sequence:\*\* (.+)") {
@@ -229,6 +234,7 @@ function Get-AllTasks {
             DueDate = $Metadata.DueDate
             Status = $TaskStatusTodo
             AssignedTo = $Metadata.AssignedTo
+            TaskType = $Metadata.TaskType
             Sequence = $Metadata.Sequence
             Tags = $Metadata.Tags
             Progress = $Progress
@@ -264,6 +270,7 @@ function Get-AllTasks {
             DueDate = $Metadata.DueDate
             Status = $TaskStatusInProgress
             AssignedTo = $Metadata.AssignedTo
+            TaskType = $Metadata.TaskType
             Sequence = $Metadata.Sequence
             Tags = $Metadata.Tags
             Progress = $Progress
@@ -298,6 +305,7 @@ function Get-AllTasks {
             DueDate = $Metadata.DueDate
             Status = $TaskStatusDone
             AssignedTo = $Metadata.AssignedTo
+            TaskType = $Metadata.TaskType
             Sequence = $Metadata.Sequence
             Tags = $Metadata.Tags
             Progress = 100
@@ -523,12 +531,13 @@ function Update-PlanFile {
     $KanbanTodoTasks = ""
     ($AllTasks | Where-Object { $_.Status -eq $TaskStatusTodo } | Sort-Object -Property Sequence) | ForEach-Object {
         # Combine task details and metadata into a single task block
-        $TaskContent = "$($_.ID) - $($_.Title)"
+        $TaskContent = "$($_.ID) - $($_.Title) ($(if ($_.TaskType) { $_.TaskType } else { "Untyped" }))"
         $TaskMetadata = ""
-        if ($_.Priority -or $_.DueDate -or $_.AssignedTo) {
+        if ($_.Priority -or $_.DueDate -or $_.AssignedTo -or $_.TaskType) {
             $TaskMetadata = "@{ "
             if ($_.Priority) { $TaskMetadata += "priority: '$($_.Priority)', " }
             if ($_.AssignedTo) { $TaskMetadata += "assigned: '$($_.AssignedTo)', " }
+            if ($_.TaskType) { $TaskMetadata += "type: '$($_.TaskType)', " }
             if ($_.DueDate) { $TaskMetadata += "due: '$($_.DueDate)'" }
             $TaskMetadata = $TaskMetadata.TrimEnd(', ') + " }"
         }
@@ -547,12 +556,13 @@ function Update-PlanFile {
     $KanbanInProgressTasks = ""
     ($AllTasks | Where-Object { $_.Status -eq $TaskStatusInProgress } | Sort-Object -Property Sequence) | ForEach-Object {
         # Combine task details and metadata into a single task block
-        $TaskContent = "$($_.ID) - $($_.Title)"
+        $TaskContent = "$($_.ID) - $($_.Title) ($(if ($_.TaskType) { $_.TaskType } else { "Untyped" }))"
         $TaskMetadata = ""
-        if ($_.Priority -or $_.DueDate -or $_.AssignedTo) {
+        if ($_.Priority -or $_.DueDate -or $_.AssignedTo -or $_.TaskType) {
             $TaskMetadata = "@{ "
             if ($_.Priority) { $TaskMetadata += "priority: '$($_.Priority)', " }
             if ($_.AssignedTo) { $TaskMetadata += "assigned: '$($_.AssignedTo)', " }
+            if ($_.TaskType) { $TaskMetadata += "type: '$($_.TaskType)', " }
             if ($_.DueDate) { $TaskMetadata += "due: '$($_.DueDate)'" }
             $TaskMetadata = $TaskMetadata.TrimEnd(', ') + " }"
         }
@@ -571,12 +581,13 @@ function Update-PlanFile {
     $KanbanDoneTasks = ""
     ($AllTasks | Where-Object { $_.Status -eq $TaskStatusDone } | Sort-Object -Property Sequence) | ForEach-Object {
         # Combine task details and metadata into a single task block
-        $TaskContent = "$($_.ID) - $($_.Title)"
+        $TaskContent = "$($_.ID) - $($_.Title) ($(if ($_.TaskType) { $_.TaskType } else { "Untyped" }))"
         $TaskMetadata = ""
-        if ($_.Priority -or $_.DueDate -or $_.AssignedTo) {
+        if ($_.Priority -or $_.DueDate -or $_.AssignedTo -or $_.TaskType) {
             $TaskMetadata = "@{ "
             if ($_.Priority) { $TaskMetadata += "priority: '$($_.Priority)', " }
             if ($_.AssignedTo) { $TaskMetadata += "assigned: '$($_.AssignedTo)', " }
+            if ($_.TaskType) { $TaskMetadata += "type: '$($_.TaskType)', " }
             if ($_.DueDate) { $TaskMetadata += "due: '$($_.DueDate)'" }
             $TaskMetadata = $TaskMetadata.TrimEnd(', ') + " }"
         }
@@ -601,7 +612,7 @@ function Update-PlanFile {
             $TaskStatusDone       { "Done" }
             default               { "Unknown" }
         }
-        $TaskSummaryTableRows += "| $($_.ID) | $StatusIcon | $($_.Title) | $($_.Priority) | $($_.DueDate) | $($_.AssignedTo) | $($_.Progress)% |`n"
+        $TaskSummaryTableRows += "| $($_.ID) | $StatusIcon | $($_.Title) | $($_.TaskType) | $($_.Priority) | $($_.DueDate) | $($_.AssignedTo) | $($_.Progress)% |`n"
     }
     $EscapedTaskSummaryTableRows = $TaskSummaryTableRows.TrimEnd().Replace('$', '$$')
     $PlanContent = $PlanContent -replace '\{\{TaskSummaryTableRows\}\}', $EscapedTaskSummaryTableRows

@@ -6,6 +6,7 @@
 - **Priority:** [High/Medium/Low]
 - **Status:** [Todo/InProgress/Done]
 - **Assigned to:** [Name]
+- **Task Type:** [Development/Bug/Test Case/Documentation/Design]
 - **Sequence:** [Number indicating execution order]
 - **Tags:** [tag1, tag2, ...]
 
@@ -80,9 +81,6 @@
 
 ## Testing Strategy
 [Describe the overall approach to testing this functionality]
-
-### Manual Testing
-[Outline manual testing requirements and approach]
 
 ### Automated Testing
 An automated test plan should be created for this functionality using the standard template:

@@ -6,6 +6,7 @@
 - **Priority:** High
 - **Status:** InProgress
 - **Assigned to:** Developer
+- **Task Type:** Development
 - **Sequence:** 1
 - **Tags:** test, sample
 

@@ -6,6 +6,7 @@
 - **Priority:** Medium
 - **Status:** Done
 - **Assigned to:** Developer
+- **Task Type:** Bug
 - **Sequence:** 2
 - **Tags:** test, sample, inprogress
 

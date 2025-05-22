@@ -3,18 +3,7 @@
 This repository contains a comprehensive Markdown-based project planning and documentation system.
 
 ## Project Metadata
-- **Last Updated:** 2025-05-22 00:10
-- **Total Tasks:** 2
-- **Todo Tasks:** 0
-- **In Progress Tasks:** 1
-- **Done Tasks:** 1
-- **Completion Rate:** 50%
-- **Estimated Hours:** 13
-- **Hours Logged:** 3
-- **Last Task:** TASK-002 - Sample In Progress Task
-
-## 📊 Project Metadata
-- **Last Updated:** 2025-05-21 17:58
+- **Last Updated:** 2025-05-22 07:48
 - **Total Tasks:** 2
 - **Todo Tasks:** 0
 - **In Progress Tasks:** 1
@@ -56,7 +45,8 @@ This repository contains a comprehensive Markdown-based project planning and doc
 
 2. **Task Management**
    - Create new tasks using the task template in the `project templates/` folder
-   - Save new tasks in the `project planning/todo/` folder with a filename format: `TASK-XXX-descriptive-name.md`
+   - Complete all required metadata fields, including the Task Type
+   - Save new tasks in the `project planning/todo/` folder with the filename format: `TASK-XXX-[TYPE]-descriptive-name.md`
    - Update the `plan.md` file to include the new task in the TODO section
    - Use the PowerShell scripts to automatically update the plan.md file
 
@@ -67,9 +57,22 @@ This repository contains a comprehensive Markdown-based project planning and doc
    - Use the reset option when you want to archive all tasks and start fresh
 
 4. **Task Naming Convention**
-   - Use the format: `TASK-XXX-descriptive-name.md`
-   - Where XXX is a sequential number (001, 002, etc.)
-   - The descriptive name should be brief but clear
+   - Use the format: `TASK-XXX-[TYPE]-descriptive-name.md`
+   - Where:
+     - XXX is a sequential number (001, 002, etc.)
+     - [TYPE] is the task type abbreviation (DEV, BUG, TEST, DOC, etc.)
+     - descriptive-name should be brief but clear
+   - Examples:
+     - `TASK-001-DEV-user-authentication.md`
+     - `TASK-002-BUG-login-validation-error.md`
+     - `TASK-003-TEST-payment-gateway.md`
+   
+   > **Note:** The task type abbreviation in the filename should match the Task Type field in the metadata section. For example, a task with filename `TASK-001-DEV-feature.md` should have `Task Type: Development` in its metadata. The standard abbreviations are:
+   > - DEV = Development
+   > - BUG = Bug
+   > - TEST = Test Case
+   > - DOC = Documentation
+   > - DES = Design
 
 ## 📊 Project Management Tools
 
@@ -81,15 +84,42 @@ The `plan.md` file serves as a Kanban board with three columns:
 
 Each task in the board includes:
 - ID and Title
+- Task Type (displayed in parentheses after the title, e.g., "Task Title (Development)")
 - Priority
 - Due Date
 - Assigned To
 - Progress percentage
 
+The task type is displayed directly after the task title for immediate visual identification, making it easier to quickly scan and categorize tasks by their type.
+
 The Kanban board is visualized using Mermaid's Kanban syntax, which displays all task details in a single card for better readability. The board is color-coded:
 - Todo tasks: Light red
 - In Progress tasks: Light blue
 - Done tasks: Light green
+
+### Task Type Classification
+The Task Type field allows you to categorize tasks by their nature:
+
+- **Development**: Tasks related to implementing new features or functionality
+- **Bug**: Tasks focused on fixing issues or defects
+- **Test Case**: Tasks dedicated to creating or running tests
+- **Documentation**: Tasks for creating or updating documentation
+- **Design**: Tasks involving UI/UX design or architecture design
+
+Using Task Types helps team members quickly identify the nature of work required and can be used to filter and prioritize tasks based on the current project phase.
+
+#### Filtering by Task Type
+You can use the PowerShell script's list tasks functionality to filter tasks by task type using the tags field, since task types are included in the task metadata:
+
+```powershell
+# Example: List all bug tasks
+.\update-plan-consolidated.ps1 -Silent -ListTasks -AssignedTo "" | Where-Object { $_.TaskType -eq "Bug" }
+
+# Example: List all development tasks in progress
+.\update-plan-consolidated.ps1 -Silent -ListTasks -TaskStatus "inprogress" | Where-Object { $_.TaskType -eq "Development" }
+```
+
+This filtering capability allows teams to focus on specific types of work during different project phases or for specialized team members to quickly identify relevant tasks.
 
 ### Automation Scripts
 The PowerShell scripts automate the maintenance of the plan.md file:
@@ -162,15 +192,14 @@ These project documentation templates can be updated using AI agents for your pr
 The task template includes:
 
 - **Task ID and Title**: Unique identifier and descriptive name
-- **Metadata**: Created date, due date, priority, status, assignee, sequence, tags
+- **Metadata**: Created date, due date, priority, status, assignee, task type, sequence, tags
 - **Overview**: Brief description of the task and its purpose
 - **Implementation Status**: Table showing progress of individual steps
 - **Detailed Description**: Comprehensive explanation of the task
 - **Acceptance Criteria**: Specific requirements that must be met
 - **Implementation Steps**: Detailed breakdown of how to complete the task
-- **Subtasks Checklist**: Hierarchical checklist for tracking granular subtasks and action items
 - **Dependencies**: Other tasks that this task depends on
-- **Testing Strategy**: How the implementation will be tested
+- **Testing Strategy**: How the implementation will be tested (automated tests only)
 - **Technical Considerations**: Any technical details or challenges
 - **Database Changes**: If applicable, any database schema changes required
 - **Time Tracking**: Estimated and actual hours

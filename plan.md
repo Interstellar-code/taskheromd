@@ -20,22 +20,22 @@ kanban
   Todo
     
   [In Progress]
-        task-001[TASK-001 - Sample Task for Testing]@{ priority: 'High', assigned: 'Developer', due: '2025-06-01' }
+        task-001[TASK-001 - Sample Task for Testing]@{ priority: 'High', assigned: 'Developer', type: 'Development', due: '2025-06-01' }
   [Done]
-        task-002[TASK-002 - Sample In Progress Task]@{ priority: 'Medium', assigned: 'Developer', due: '2025-06-05' }
+        task-002[TASK-002 - Sample In Progress Task]@{ priority: 'Medium', assigned: 'Developer', type: 'Bug', due: '2025-06-05' }
 ```
 
 ## 📝 Task Summary
-| ID | Status | Title | Priority | Due Date | Assigned To | Progress |
-|----|--------|-------|----------|----------|-------------|----------|
-| TASK-002 | Done | Sample In Progress Task | Medium | 2025-06-05 | Developer | 100% |
-| TASK-001 | In Progress | Sample Task for Testing | High | 2025-06-01 | Developer | 0% |
+| ID | Status | Title | Type | Priority | Due Date | Assigned To | Progress |
+|----|--------|-------|------|----------|----------|-------------|----------|
+| TASK-001 | In Progress | Sample Task for Testing | Development | High | 2025-06-01 | Developer | 0% |
+| TASK-002 | Done | Sample In Progress Task | Bug | Medium | 2025-06-05 | Developer | 100% |
 
 ## 🔗 Task Dependencies
 | Task ID | Task Name | Depends On | Required By |
 |---------|-----------|------------|-------------|
-| TASK-002 | Sample In Progress Task |  |  |
 | TASK-001 | Sample Task for Testing |  |  |
+| TASK-002 | Sample In Progress Task |  |  |
 
 ## ⏳ Timeline
 ```mermaid

@@ -26,8 +26,8 @@ kanban
 ```
 
 ## 📝 Task Summary
-| ID | Status | Title | Priority | Due Date | Assigned To | Progress |
-|----|--------|-------|----------|----------|-------------|----------|
+| ID | Status | Title | Type | Priority | Due Date | Assigned To | Progress |
+|----|--------|-------|------|----------|----------|-------------|----------|
 {{TaskSummaryTableRows}}
 
 ## 🔗 Task Dependencies
