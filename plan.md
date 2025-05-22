@@ -20,9 +20,9 @@ kanban
   Todo
     
   [In Progress]
-        task-001[TASK-001 - Sample Task for Testing]@{ priority: 'High', assigned: 'Developer', type: 'Development', due: '2025-06-01' }
+        TASK-001: Sample Task for Testing
   [Done]
-        task-002[TASK-002 - Sample In Progress Task]@{ priority: 'Medium', assigned: 'Developer', type: 'Bug', due: '2025-06-05' }
+        TASK-002: Sample In Progress Task
 ```
 
 ## 📝 Task Summary

@@ -1,5 +1,6 @@
-# Project Planning Management - Consolidated Script
+# Project Planning Management - TaskHero Main Script
 # This script combines plan.md updating and reporting functionality with interactive and silent modes
+# and provides AI-powered features
 
 param (
     [switch]$Silent,
@@ -356,13 +357,8 @@ function Get-ProjectStats {
 
     $TotalTasks = $AllTasks.Count
 
-    # Debug output to check task statuses
-    if (-not $Silent) {
-        Write-Host "Debug - Task Status Check:" -ForegroundColor Cyan
-        foreach ($Task in $AllTasks) {
-            Write-Host "Task ID: $($Task.ID), Status: $($Task.Status)" -ForegroundColor Cyan
-        }
-    }
+    # Task status verification (silently)
+    # No debug output
 
     # Clear counters for task statuses
     $TodoCount = 0
@@ -526,15 +522,7 @@ function Update-PlanFile {
     # Populate placeholders
     $PlanContent = $PlanContent -replace '\{\{ProjectName\}\}', "Project Plan" # Or use a variable
 
-    # Debug output to verify the values
-    if (-not $Silent) {
-        Write-Host "Debug - Task Stats:" -ForegroundColor Yellow
-        Write-Host "Total Tasks: $($ProjectStats.TotalTasks)" -ForegroundColor Yellow
-        Write-Host "Todo Count: $($ProjectStats.TodoCount)" -ForegroundColor Yellow
-        Write-Host "In Progress Count: $($ProjectStats.InProgressCount)" -ForegroundColor Yellow
-        Write-Host "Done Count: $($ProjectStats.DoneCount)" -ForegroundColor Yellow
-        Write-Host "Completion Rate: $($ProjectStats.CompletionRate)%" -ForegroundColor Yellow
-    }
+    # No debug output for stats
 
     # Ensure we're using the correct values
     $PlanContent = $PlanContent -replace '\{\{TotalTasks\}\}', $ProjectStats.TotalTasks
@@ -602,17 +590,7 @@ function Update-PlanFile {
             default               { "Unknown" }
         }
 
-        # Debug output for problematic tasks
-        if ($_.ID -eq "TASK-002" -or $_.ID -eq "TASK-005" -or $_.ID -eq "TASK-006") {
-            if (-not $Silent) {
-                Write-Host "Debug - $($_.ID):" -ForegroundColor Red
-                Write-Host "  Title: '$($_.Title)'" -ForegroundColor Red
-                Write-Host "  TaskType: '$($_.TaskType)'" -ForegroundColor Red
-                Write-Host "  Priority: '$($_.Priority)'" -ForegroundColor Red
-                Write-Host "  DueDate: '$($_.DueDate)'" -ForegroundColor Red
-                Write-Host "  AssignedTo: '$($_.AssignedTo)'" -ForegroundColor Red
-            }
-        }
+        # No debug output for tasks
 
         # Sanitize fields to remove newlines and problematic characters
         $CleanTitle = if ($_.Title) { $_.Title -replace '\r?\n', ' ' -replace '\|', '-' } else { "" }
@@ -1320,7 +1298,7 @@ function Update-TaskMenu {
 
     if ($AllTasks.Count -eq 0) {
         Write-Host "No tasks found." -ForegroundColor Yellow
-        Read-Host "Press Enter to continue"
+        Start-Sleep -Seconds 2 # Show message briefly
         return
     }
 
@@ -1354,7 +1332,7 @@ function Update-TaskMenu {
 
     if (-not $SelectedTask) {
         Write-Host "Invalid task ID. Please try again." -ForegroundColor Red
-        Read-Host "Press Enter to continue"
+        Start-Sleep -Seconds 2 # Show error message briefly
         return
     }
 
@@ -1363,7 +1341,7 @@ function Update-TaskMenu {
 
     if ($Confirmation -ne "y") {
         Write-Host "Operation cancelled." -ForegroundColor Yellow
-        Read-Host "Press Enter to continue"
+        Start-Sleep -Seconds 2 # Show message briefly
         return
     }
 
@@ -1377,7 +1355,7 @@ function Update-TaskMenu {
         Write-Host "Failed to update task status." -ForegroundColor Red
     }
 
-    Read-Host "Press Enter to continue"
+    Show-CountdownTimer -Message "Returning to tasks menu"
 }
 
 # Function to display tasks in a formatted table
@@ -1460,6 +1438,25 @@ function Show-Menu {
     
     Write-Host "0: Exit" -ForegroundColor White
     Write-Host "=======================================" -ForegroundColor Cyan
+}
+
+# Function to display countdown timer before returning to menu
+function Show-CountdownTimer {
+    param (
+        [Parameter(Mandatory=$false)]
+        [int]$Seconds = 4,
+        
+        [Parameter(Mandatory=$false)]
+        [string]$Message = "Returning to menu"
+    )
+    
+    Write-Host ""
+    for ($i = $Seconds; $i -gt 0; $i--) {
+        Write-Host "$i... $Message" -ForegroundColor Yellow -NoNewline
+        Start-Sleep -Seconds 1
+        Write-Host "`r                                          " -NoNewline
+    }
+    Write-Host ""
 }
 
 # Function to show TaskHero Tasks sub-menu
@@ -1570,12 +1567,12 @@ while (-not $exitLoop) {
     switch ($choice) {
         "1" {
             Update-PlanFile
-            Read-Host "Press Enter to continue"
+            Show-CountdownTimer -Message "Returning to main menu"
         }
         "2" {
             $InteractiveReportPath = "project-report-$(Get-Date -Format 'yyyy-MM-dd').md" # Use a local var for interactive mode
             New-ProjectReport -OutputPath $InteractiveReportPath
-            Read-Host "Press Enter to continue"
+            Show-CountdownTimer -Message "Returning to main menu"
         }
         "3" {
             # Show TaskHero Tasks sub-menu
@@ -1588,12 +1585,12 @@ while (-not $exitLoop) {
                     "1" {
                         $AllTasksInteractive = Get-TaskList
                         Show-TaskList -Tasks $AllTasksInteractive
-                        Read-Host "Press Enter to continue"
+                        Show-CountdownTimer -Message "Returning to tasks menu"
                     }
                     "2" {
                         $OpenTasksInteractive = Get-TaskList -Status "open"
                         Show-TaskList -Tasks $OpenTasksInteractive
-                        Read-Host "Press Enter to continue"
+                        Show-CountdownTimer -Message "Returning to tasks menu"
                     }
                     "3" {
                         Clear-Host
@@ -1614,13 +1611,13 @@ while (-not $exitLoop) {
 
                         $TasksByStatusInteractive = Get-TaskList -Status $statusToFilterInteractive
                         Show-TaskList -Tasks $TasksByStatusInteractive
-                        Read-Host "Press Enter to continue"
+                        Show-CountdownTimer -Message "Returning to tasks menu"
                     }
                     "4" {
                         $assigneeInteractive = Read-Host "Enter assignee name (or part of name)"
                         $TasksByAssigneeInteractive = Get-TaskList -AssignedTo $assigneeInteractive
                         Show-TaskList -Tasks $TasksByAssigneeInteractive
-                        Read-Host "Press Enter to continue"
+                        Show-CountdownTimer -Message "Returning to tasks menu"
                     }
                     "5" {
                         # Mark task as done
@@ -1636,14 +1633,14 @@ while (-not $exitLoop) {
                     }
                     "8" {
                         Reset-ProjectTasks # This will prompt if -Force is not used, which is fine for interactive
-                        Read-Host "Press Enter to continue"
+                        Show-CountdownTimer -Message "Returning to tasks menu"
                     }
                     "0" {
                         $tasksExitLoop = $true
                     }
                     default {
                         Write-Host "Invalid choice. Please try again." -ForegroundColor Red
-                        Read-Host "Press Enter to continue"
+                        Start-Sleep -Seconds 2 # Show error message briefly
                     }
                 }
             }
@@ -1659,14 +1656,15 @@ while (-not $exitLoop) {
                     switch ($aiChoice) {
                         "1" {
                             Set-OpenRouterSettings
+                            Show-CountdownTimer -Message "Returning to AI menu"
                         }
                         "2" {
                             New-AIGeneratedDocumentation -UseCodebase:$false
-                            Read-Host "Press Enter to continue"
+                            Show-CountdownTimer -Message "Returning to AI menu"
                         }
                         "3" {
                             New-AIGeneratedDocumentation -UseCodebase:$true
-                            Read-Host "Press Enter to continue"
+                            Show-CountdownTimer -Message "Returning to AI menu"
                         }
                         "4" {
                             Clear-Host
@@ -1676,7 +1674,7 @@ while (-not $exitLoop) {
                             $OpenTasksForSuggestions = Get-TaskList -Status "open"
                             if ($OpenTasksForSuggestions.Count -eq 0) {
                                 Write-Host "No open tasks found." -ForegroundColor Yellow
-                                Read-Host "Press Enter to continue"
+                                Start-Sleep -Seconds 2 # Show message briefly
                                 continue
                             }
                             
@@ -1686,25 +1684,25 @@ while (-not $exitLoop) {
                             
                             if ([string]::IsNullOrEmpty($SelectedTaskID)) {
                                 Write-Host "No task selected. Returning to menu." -ForegroundColor Yellow
-                                Read-Host "Press Enter to continue"
+                                Start-Sleep -Seconds 2 # Show message briefly
                                 continue
                             }
                             
                             Get-AITaskSuggestions -TaskID $SelectedTaskID
-                            Read-Host "Press Enter to continue"
+                            Show-CountdownTimer -Message "Returning to AI menu"
                         }
                         "0" {
                             $aiExitLoop = $true
                         }
                         default {
                             Write-Host "Invalid choice. Please try again." -ForegroundColor Red
-                            Read-Host "Press Enter to continue"
+                            Start-Sleep -Seconds 2 # Show error message briefly
                         }
                     }
                 }
             } else {
                 Write-Host "AI features are not available. Make sure taskhero-ai-commands.ps1 is in the same directory." -ForegroundColor Red
-                Read-Host "Press Enter to continue"
+                Start-Sleep -Seconds 3 # Show error message for a bit longer
             }
         }
         "0" {
@@ -1712,7 +1710,7 @@ while (-not $exitLoop) {
         }
         default {
             Write-Host "Invalid choice. Please try again." -ForegroundColor Red
-            Read-Host "Press Enter to continue"
+            Start-Sleep -Seconds 2 # Show error message briefly
         }
     }
 }

@@ -1,0 +1,12 @@
+{
+  "openrouter": {
+    "api_key": "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",
+    "site_url": "https://subshero.com/",
+    "site_name": "subshero",
+    "model": "google/gemini-2.5-flash-preview-05-20"
+  },
+  "user_preferences": {
+    "default_report_path": "project-report-auto.md",
+    "default_comprehensive_report_path": "project-comprehensive-report-auto.md"
+  }
+}

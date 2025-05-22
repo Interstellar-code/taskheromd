@@ -3,7 +3,7 @@
 This repository contains a comprehensive Markdown-based project planning and documentation system.
 
 ## Project Metadata
-- **Last Updated:** 2025-05-22 07:48
+- **Last Updated:** 2025-05-22 18:20
 - **Total Tasks:** 2
 - **Todo Tasks:** 0
 - **In Progress Tasks:** 1
@@ -32,9 +32,10 @@ This repository contains a comprehensive Markdown-based project planning and doc
 - `project templates/` - Additional project templates
 
 - `plan.md` - Main Kanban board with overview of all tasks
-- `update-plan-consolidated.ps1` - Consolidated PowerShell script with interactive menu for managing tasks
+- `taskhero-main.ps1` - Main TaskHero PowerShell script with interactive menu for managing tasks
 - `update-plan.ps1` - PowerShell script to update the plan.md file
 - `update-plan-kanban.ps1` - PowerShell script to update the plan.md file with Kanban format
+- `taskhero_settings.json` - Settings file for TaskHero including OpenRouter API configuration
 
 ## 🔄 Project Planning Workflow
 
@@ -125,7 +126,7 @@ This filtering capability allows teams to focus on specific types of work during
 The PowerShell scripts automate the maintenance of the plan.md file:
 
 #### Consolidated Script (Recommended)
-- `update-plan-consolidated.ps1` - All-in-one script with interactive menu and silent mode options:
+- `taskhero-main.ps1` - All-in-one script with interactive menu and silent mode options:
   - Update plan.md with current task statuses
   - Generate project status reports
   - Generate comprehensive project plan reports with detailed visualizations
@@ -133,13 +134,17 @@ The PowerShell scripts automate the maintenance of the plan.md file:
   - Reset project by archiving all tasks
 
   **Usage:**
-  - Interactive mode: `.\update-plan-consolidated.ps1`
+  - Interactive mode: `.\taskhero-main.ps1`
   - Silent mode examples:
     - Update plan: `.\update-plan-consolidated.ps1 -Silent -UpdatePlan`
     - Generate status report: `.\update-plan-consolidated.ps1 -Silent -GenerateReport -ReportPath "custom-report.md"`
     - Generate comprehensive plan report: `.\update-plan-consolidated.ps1 -Silent -GenerateComprehensiveReport -ComprehensiveReportPath "custom-plan-report.md"`
     - List tasks: `.\update-plan-consolidated.ps1 -Silent -ListTasks -TaskStatus "todo" -AssignedTo "John"`
     - Reset project: `.\update-plan-consolidated.ps1 -Silent -ResetTasks`
+    - Configure AI settings: `.\update-plan-consolidated.ps1 -ConfigureAI`
+    - Generate AI documentation from tasks: `.\update-plan-consolidated.ps1 -GenerateAIDocumentation -AIDocumentationPath "project docs/ai-doc.md"`
+    - Generate AI documentation from codebase: `.\update-plan-consolidated.ps1 -GenerateAIDocumentation -UseCodebaseForAIDoc -AIDocumentationPath "project docs/ai-doc.md"`
+    - Get AI task suggestions: `.\update-plan-consolidated.ps1 -GetAITaskSuggestions -TaskIDForSuggestions "TASK-001"`
 
 #### Legacy Scripts
 - `update-plan.ps1` - Updates the plan.md file based on task files in the folders
@@ -187,6 +192,67 @@ The `project docs/` folder contains templates for comprehensive project document
   - Performance optimization patterns
 
 These project documentation templates can be updated using AI agents for your project.
+
+## 🤖 AI Assistant Features
+
+TaskHero now includes AI-powered features via the OpenRouter API integration:
+
+### Configuration
+
+Before using AI features, you need to configure your OpenRouter API settings:
+
+1. Get an API key from [OpenRouter](https://openrouter.ai/)
+2. Configure the settings in TaskHero:
+   - Interactive: Use menu option "Configure AI Assistant"
+   - Command-line: `.\update-plan-consolidated.ps1 -ConfigureAI`
+   - Manual: Edit `taskhero_settings.json` directly
+
+The settings file (`taskhero_settings.json`) stores:
+- OpenRouter API key
+- Site URL for attribution
+- Site name for attribution
+- Default AI model to use
+
+### AI-Powered Documentation
+
+Generate comprehensive project documentation in two ways:
+
+1. **From Tasks**:
+   - **Interactive**: Select "Generate AI project documentation (from tasks)" from the menu
+   - **Command-line**: `.\update-plan-consolidated.ps1 -GenerateAIDocumentation -AIDocumentationPath "project docs/ai-doc.md"`
+
+   The AI analyzes your tasks to create documentation including:
+   - Project overview
+   - Component relationships
+   - Architectural patterns
+   - Development roadmap based on task dependencies
+   - Risk assessment
+
+2. **From Codebase**:
+   - **Interactive**: Select "Generate AI project documentation (from codebase)" from the menu
+   - **Command-line**: `.\update-plan-consolidated.ps1 -GenerateAIDocumentation -UseCodebaseForAIDoc -AIDocumentationPath "project docs/ai-doc.md"`
+
+   The AI analyzes your actual codebase to create technical documentation including:
+   - Project overview and architecture description
+   - Identification of main components and their relationships
+   - Documentation of key functions and their purposes
+   - Explanation of component interactions
+   - Suggestions for architectural improvements
+   - Code examples and best practices
+
+### AI Task Suggestions
+
+Get AI suggestions to improve individual tasks:
+
+- **Interactive**: Select "Get AI suggestions for task improvement" from the menu, then select a task
+- **Command-line**: `.\update-plan-consolidated.ps1 -GetAITaskSuggestions -TaskIDForSuggestions "TASK-001"`
+
+The AI analyzes your task to provide suggestions for:
+- Improving task descriptions
+- Additional acceptance criteria
+- Implementation steps
+- Identifying dependencies
+- Breaking down large tasks
 
 ### Task Template Fields
 The task template includes:
