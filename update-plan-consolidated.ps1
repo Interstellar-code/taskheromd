@@ -105,49 +105,49 @@ function Get-TaskMetadata {
     )
     $Metadata = @{}
 
-    # Extract task ID and title
-    if ($Content -match "# Task: (TASK-\d+) - (.+)") {
-        $Metadata.ID = $matches[1]
-        $Metadata.Title = $matches[2]
+    # Extract task ID and title (stop at end of line)
+    if ($Content -match "# Task: (TASK-\d+) - ([^\r\n]+)") {
+        $Metadata.ID = $matches[1].Trim()
+        $Metadata.Title = $matches[2].Trim()
     }
 
-    # Extract metadata section
-    if ($Content -match "## Metadata\r?\n((?:- \*\*.*\r?\n)+)") {
+    # Extract metadata section (allow blank lines)
+    if ($Content -match "## Metadata\r?\n((?:\r?\n|(?:- \*\*.*\r?\n))+)") {
         $MetadataSection = $matches[1]
 
-        # Extract priority
-        if ($MetadataSection -match "- \*\*Priority:\*\* (.+)") {
-            $Metadata.Priority = $matches[1]
+        # Extract priority (stop at end of line)
+        if ($MetadataSection -match "- \*\*Priority:\*\* ([^\r\n]+)") {
+            $Metadata.Priority = $matches[1].Trim()
         }
 
-        # Extract due date
-        if ($MetadataSection -match "- \*\*Due:\*\* (.+)") {
-            $Metadata.DueDate = $matches[1]
+        # Extract due date (stop at end of line)
+        if ($MetadataSection -match "- \*\*Due:\*\* ([^\r\n]+)") {
+            $Metadata.DueDate = $matches[1].Trim()
         }
 
-        # Extract status
-        if ($MetadataSection -match "- \*\*Status:\*\* (.+)") {
-            $Metadata.Status = $matches[1]
+        # Extract status (stop at end of line)
+        if ($MetadataSection -match "- \*\*Status:\*\* ([^\r\n]+)") {
+            $Metadata.Status = $matches[1].Trim()
         }
 
-        # Extract assigned to
-        if ($MetadataSection -match "- \*\*Assigned to:\*\* (.+)") {
-            $Metadata.AssignedTo = $matches[1]
-        }
-        
-        # Extract task type
-        if ($MetadataSection -match "- \*\*Task Type:\*\* (.+)") {
-            $Metadata.TaskType = $matches[1]
+        # Extract assigned to (stop at end of line)
+        if ($MetadataSection -match "- \*\*Assigned to:\*\* ([^\r\n]+)") {
+            $Metadata.AssignedTo = $matches[1].Trim()
         }
 
-        # Extract sequence
-        if ($MetadataSection -match "- \*\*Sequence:\*\* (.+)") {
-            $Metadata.Sequence = $matches[1]
+        # Extract task type (stop at end of line)
+        if ($MetadataSection -match "- \*\*Task Type:\*\* ([^\r\n]+)") {
+            $Metadata.TaskType = $matches[1].Trim()
         }
 
-        # Extract tags
-        if ($MetadataSection -match "- \*\*Tags:\*\* (.+)") {
-            $Metadata.Tags = $matches[1]
+        # Extract sequence (stop at end of line)
+        if ($MetadataSection -match "- \*\*Sequence:\*\* ([^\r\n]+)") {
+            $Metadata.Sequence = $matches[1].Trim()
+        }
+
+        # Extract tags (stop at end of line)
+        if ($MetadataSection -match "- \*\*Tags:\*\* ([^\r\n]+)") {
+            $Metadata.Tags = $matches[1].Trim()
         }
     }
 
@@ -530,24 +530,14 @@ function Update-PlanFile {
     # Kanban Tasks
     $KanbanTodoTasks = ""
     ($AllTasks | Where-Object { $_.Status -eq $TaskStatusTodo } | Sort-Object -Property Sequence) | ForEach-Object {
-        # Combine task details and metadata into a single task block
-        $TaskContent = "$($_.ID) - $($_.Title) ($(if ($_.TaskType) { $_.TaskType } else { "Untyped" }))"
-        $TaskMetadata = ""
-        if ($_.Priority -or $_.DueDate -or $_.AssignedTo -or $_.TaskType) {
-            $TaskMetadata = "@{ "
-            if ($_.Priority) { $TaskMetadata += "priority: '$($_.Priority)', " }
-            if ($_.AssignedTo) { $TaskMetadata += "assigned: '$($_.AssignedTo)', " }
-            if ($_.TaskType) { $TaskMetadata += "type: '$($_.TaskType)', " }
-            if ($_.DueDate) { $TaskMetadata += "due: '$($_.DueDate)'" }
-            $TaskMetadata = $TaskMetadata.TrimEnd(', ') + " }"
-        }
-        
-        # Use the ID without "TASK-" prefix since it's already in the content
-        $TaskPrefix = $_.ID -replace "TASK-", ""
-        $FormattedTask = "    task-$TaskPrefix[$TaskContent]"
-        if ($TaskMetadata) {
-            $FormattedTask += $TaskMetadata
-        }
+        # Create simple task name for Mermaid Kanban syntax
+        $TaskTitle = $_.Title
+        # Escape special characters that might break Mermaid syntax
+        $TaskTitle = $TaskTitle -replace '[[\](){}]', ''
+        $TaskTitle = $TaskTitle -replace '["]', "'"
+
+        # Format: Simple task name for Mermaid Kanban
+        $FormattedTask = "    $($_.ID): $TaskTitle"
         $KanbanTodoTasks += "$FormattedTask`n"
     }
     $EscapedKanbanTodoTasks = $KanbanTodoTasks.TrimEnd().Replace('$', '$$')
@@ -555,24 +545,14 @@ function Update-PlanFile {
 
     $KanbanInProgressTasks = ""
     ($AllTasks | Where-Object { $_.Status -eq $TaskStatusInProgress } | Sort-Object -Property Sequence) | ForEach-Object {
-        # Combine task details and metadata into a single task block
-        $TaskContent = "$($_.ID) - $($_.Title) ($(if ($_.TaskType) { $_.TaskType } else { "Untyped" }))"
-        $TaskMetadata = ""
-        if ($_.Priority -or $_.DueDate -or $_.AssignedTo -or $_.TaskType) {
-            $TaskMetadata = "@{ "
-            if ($_.Priority) { $TaskMetadata += "priority: '$($_.Priority)', " }
-            if ($_.AssignedTo) { $TaskMetadata += "assigned: '$($_.AssignedTo)', " }
-            if ($_.TaskType) { $TaskMetadata += "type: '$($_.TaskType)', " }
-            if ($_.DueDate) { $TaskMetadata += "due: '$($_.DueDate)'" }
-            $TaskMetadata = $TaskMetadata.TrimEnd(', ') + " }"
-        }
-        
-        # Use the ID without "TASK-" prefix since it's already in the content
-        $TaskPrefix = $_.ID -replace "TASK-", ""
-        $FormattedTask = "    task-$TaskPrefix[$TaskContent]"
-        if ($TaskMetadata) {
-            $FormattedTask += $TaskMetadata
-        }
+        # Create simple task name for Mermaid Kanban syntax
+        $TaskTitle = $_.Title
+        # Escape special characters that might break Mermaid syntax
+        $TaskTitle = $TaskTitle -replace '[[\](){}]', ''
+        $TaskTitle = $TaskTitle -replace '["]', "'"
+
+        # Format: Simple task name for Mermaid Kanban
+        $FormattedTask = "    $($_.ID): $TaskTitle"
         $KanbanInProgressTasks += "$FormattedTask`n"
     }
     $EscapedKanbanInProgressTasks = $KanbanInProgressTasks.TrimEnd().Replace('$', '$$')
@@ -580,24 +560,14 @@ function Update-PlanFile {
 
     $KanbanDoneTasks = ""
     ($AllTasks | Where-Object { $_.Status -eq $TaskStatusDone } | Sort-Object -Property Sequence) | ForEach-Object {
-        # Combine task details and metadata into a single task block
-        $TaskContent = "$($_.ID) - $($_.Title) ($(if ($_.TaskType) { $_.TaskType } else { "Untyped" }))"
-        $TaskMetadata = ""
-        if ($_.Priority -or $_.DueDate -or $_.AssignedTo -or $_.TaskType) {
-            $TaskMetadata = "@{ "
-            if ($_.Priority) { $TaskMetadata += "priority: '$($_.Priority)', " }
-            if ($_.AssignedTo) { $TaskMetadata += "assigned: '$($_.AssignedTo)', " }
-            if ($_.TaskType) { $TaskMetadata += "type: '$($_.TaskType)', " }
-            if ($_.DueDate) { $TaskMetadata += "due: '$($_.DueDate)'" }
-            $TaskMetadata = $TaskMetadata.TrimEnd(', ') + " }"
-        }
-        
-        # Use the ID without "TASK-" prefix since it's already in the content
-        $TaskPrefix = $_.ID -replace "TASK-", ""
-        $FormattedTask = "    task-$TaskPrefix[$TaskContent]"
-        if ($TaskMetadata) {
-            $FormattedTask += $TaskMetadata
-        }
+        # Create simple task name for Mermaid Kanban syntax
+        $TaskTitle = $_.Title
+        # Escape special characters that might break Mermaid syntax
+        $TaskTitle = $TaskTitle -replace '[[\](){}]', ''
+        $TaskTitle = $TaskTitle -replace '["]', "'"
+
+        # Format: Simple task name for Mermaid Kanban
+        $FormattedTask = "    $($_.ID): $TaskTitle"
         $KanbanDoneTasks += "$FormattedTask`n"
     }
     $EscapedKanbanDoneTasks = $KanbanDoneTasks.TrimEnd().Replace('$', '$$')
@@ -612,7 +582,27 @@ function Update-PlanFile {
             $TaskStatusDone       { "Done" }
             default               { "Unknown" }
         }
-        $TaskSummaryTableRows += "| $($_.ID) | $StatusIcon | $($_.Title) | $($_.TaskType) | $($_.Priority) | $($_.DueDate) | $($_.AssignedTo) | $($_.Progress)% |`n"
+
+        # Debug output for problematic tasks
+        if ($_.ID -eq "TASK-002" -or $_.ID -eq "TASK-005" -or $_.ID -eq "TASK-006") {
+            if (-not $Silent) {
+                Write-Host "Debug - $($_.ID):" -ForegroundColor Red
+                Write-Host "  Title: '$($_.Title)'" -ForegroundColor Red
+                Write-Host "  TaskType: '$($_.TaskType)'" -ForegroundColor Red
+                Write-Host "  Priority: '$($_.Priority)'" -ForegroundColor Red
+                Write-Host "  DueDate: '$($_.DueDate)'" -ForegroundColor Red
+                Write-Host "  AssignedTo: '$($_.AssignedTo)'" -ForegroundColor Red
+            }
+        }
+
+        # Sanitize fields to remove newlines and problematic characters
+        $CleanTitle = if ($_.Title) { $_.Title -replace '\r?\n', ' ' -replace '\|', '-' } else { "" }
+        $CleanTaskType = if ($_.TaskType) { $_.TaskType -replace '\r?\n', ' ' -replace '\|', '-' } else { "" }
+        $CleanPriority = if ($_.Priority) { $_.Priority -replace '\r?\n', ' ' -replace '\|', '-' } else { "" }
+        $CleanDueDate = if ($_.DueDate) { $_.DueDate -replace '\r?\n', ' ' -replace '\|', '-' } else { "" }
+        $CleanAssignedTo = if ($_.AssignedTo) { $_.AssignedTo -replace '\r?\n', ' ' -replace '\|', '-' } else { "" }
+
+        $TaskSummaryTableRows += "| $($_.ID) | $StatusIcon | $CleanTitle | $CleanTaskType | $CleanPriority | $CleanDueDate | $CleanAssignedTo | $($_.Progress)% |`n"
     }
     $EscapedTaskSummaryTableRows = $TaskSummaryTableRows.TrimEnd().Replace('$', '$$')
     $PlanContent = $PlanContent -replace '\{\{TaskSummaryTableRows\}\}', $EscapedTaskSummaryTableRows
@@ -620,7 +610,12 @@ function Update-PlanFile {
     # Task Dependencies Table Rows
     $TaskDependenciesTableRows = ""
     ($AllTasks | Sort-Object -Property Sequence) | ForEach-Object {
-        $TaskDependenciesTableRows += "| $($_.ID) | $($_.Title) | $($_.DependsOn) | $($_.RequiredBy) |`n"
+        # Sanitize fields to remove newlines and problematic characters
+        $CleanTitle = if ($_.Title) { $_.Title -replace '\r?\n', ' ' -replace '\|', '-' } else { "" }
+        $CleanDependsOn = if ($_.DependsOn) { $_.DependsOn -replace '\r?\n', ' ' -replace '\|', '-' } else { "" }
+        $CleanRequiredBy = if ($_.RequiredBy) { $_.RequiredBy -replace '\r?\n', ' ' -replace '\|', '-' } else { "" }
+
+        $TaskDependenciesTableRows += "| $($_.ID) | $CleanTitle | $CleanDependsOn | $CleanRequiredBy |`n"
     }
     $EscapedTaskDependenciesTableRows = $TaskDependenciesTableRows.TrimEnd().Replace('$', '$$')
     $PlanContent = $PlanContent -replace '\{\{TaskDependenciesTableRows\}\}', $EscapedTaskDependenciesTableRows
