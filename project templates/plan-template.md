@@ -3,8 +3,11 @@
 ## 📊 Project Stats
 - **Total Tasks:** {{TotalTasks}}
 - **✅ Done:** {{DoneCount}}
+- **🧪 Testing:** {{TestingCount}}
+- **🔄 Dev Done:** {{DevDoneCount}}
 - **⏳ In Progress:** {{InProgressCount}}
 - **📋 Todo:** {{TodoCount}}
+- **📊 Backlog:** {{BacklogCount}}
 - **🎯 Completion Rate:** {{CompletionRate}}%
 - **⏱️ Estimated Total Hours:** {{TotalEstimatedHours}}
 - **⏱️ Hours Logged:** {{TotalActualHours}}
@@ -17,10 +20,16 @@ config:
     ticketBaseUrl: 'https://project.atlassian.net/browse/#TICKET#'
 ---
 kanban
+  [Backlog]
+    {{KanbanBacklogTasks}}
   Todo
     {{KanbanTodoTasks}}
   [In Progress]
     {{KanbanInProgressTasks}}
+  [Dev Done]
+    {{KanbanDevDoneTasks}}
+  [Testing]
+    {{KanbanTestingTasks}}
   [Done]
     {{KanbanDoneTasks}}
 ```

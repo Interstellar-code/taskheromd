@@ -1,14 +1,37 @@
-# Task: [Task ID] - [Task Title]
+# Task: TASK-ID - TASK-TITLE
 
 ## Metadata
-- **Created:** [YYYY-MM-DD]
-- **Due:** [YYYY-MM-DD]
-- **Priority:** [High/Medium/Low]
-- **Status:** [Todo/InProgress/Done]
-- **Assigned to:** [Name]
-- **Task Type:** [Development/Bug/Test Case/Documentation/Design]
-- **Sequence:** [Number indicating execution order]
-- **Tags:** [tag1, tag2, ...]
+- **Priority:** PRIORITY
+- **Due:** DUE-DATE
+- **Status:** STATUS
+- **Assigned to:** ASSIGNEE
+- **Task Type:** TASK-TYPE
+- **Sequence:** SEQUENCE
+- **Tags:** TAGS
+
+## Description
+DESCRIPTION
+
+## Acceptance Criteria
+- [ ] Criteria 1
+- [ ] Criteria 2
+- [ ] Criteria 3
+
+## Time Tracking
+- **Estimated hours:** ESTIMATED-HOURS
+- **Actual hours:** ACTUAL-HOURS
+
+## Dependencies
+### Required By This Task
+- None
+
+### Dependent On This Task
+- None
+
+## Implementation Steps with Checklists
+- [ ] Step 1
+- [ ] Step 2
+- [ ] Step 3
 
 ## 1. Overview
 [Brief description of the task and its purpose]
@@ -36,31 +59,7 @@ flowchart TD
 ## 4. Detailed Description
 [Detailed description of the task, including its purpose, benefits, and any relevant background information]
 
-## 5. Implementation Steps with Checklists
-
-### 5.1. [First Step]
-[Description of the first implementation step]
-- [ ] **5.1.1. Action Item**: [Brief description]
-  - [ ] Sub-action 5.1.1.1: [Details]
-  - [ ] Sub-action 5.1.1.2: [Details]
-- [ ] **5.1.2. Action Item**: [Brief description]
-  - [ ] Sub-action 5.1.2.1: [Details]
-
-### 5.2. [Second Step]
-[Description of the second implementation step]
-- [ ] **5.2.1. Action Item**: [Brief description]
-  - [ ] Sub-action 5.2.1.1: [Details]
-  - [ ] Sub-action 5.2.1.2: [Details]
-- [ ] **5.2.2. Action Item**: [Brief description]
-
-### 5.3. [Third Step]
-[Description of the third implementation step]
-- [ ] **5.3.1. Action Item**: [Brief description]
-  - [ ] Sub-action 5.3.1.1: [Details]
-  - [ ] Sub-action 5.3.1.2: [Details]
-  - [ ] Sub-action 5.3.1.3: [Details]
-
-### 5.4. Testing
+## 5. Testing
 [Describe the testing approach for this task]
 - [ ] **5.4.1. Create Test Plan**: Create test plan for task
 - [ ] **5.4.2. Implement Tests**: Develop tests

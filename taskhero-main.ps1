@@ -8,6 +8,7 @@ param (
     [switch]$GenerateReport,
     [switch]$ListTasks,
     [switch]$ResetTasks,
+    [switch]$ArchiveDoneTasks,
     [string]$TaskStatus = "all",
     [string]$AssignedTo = "",
     [string]$ReportPath = "project-report-$(Get-Date -Format 'yyyy-MM-dd').md",
@@ -24,7 +25,10 @@ param (
 # Define constants
 $TaskStatusTodo = "Todo"
 $TaskStatusInProgress = "InProgress"
+$TaskStatusDevDone = "DevDone"
+$TaskStatusTesting = "Testing"
 $TaskStatusDone = "Done"
+$TaskStatusBacklog = "Backlog"
 
 # Function to calculate task progress based on acceptance criteria
 function Get-TaskProgress {
@@ -181,13 +185,16 @@ function Initialize-RequiredFolders {
     $ProjectPlanningPath = "project planning"
     $TodoPath = "project planning/todo"
     $InProgressPath = "project planning/inprogress"
+    $DevDonePath = "project planning/devdone"
+    $TestingPath = "project planning/testing"
     $DonePath = "project planning/done"
     $ArchivePath = "project planning/archive"
+    $BacklogPath = "project planning/backlog"
     $TemplatesPath = "project templates"
     $DocsPath = "project docs"
 
     # Create folders if they don't exist
-    $Folders = @($ProjectPlanningPath, $TodoPath, $InProgressPath, $DonePath, $ArchivePath, $TemplatesPath, $DocsPath)
+    $Folders = @($ProjectPlanningPath, $TodoPath, $InProgressPath, $DevDonePath, $TestingPath, $DonePath, $ArchivePath, $BacklogPath, $TemplatesPath, $DocsPath)
 
     foreach ($Folder in $Folders) {
         if (-not (Test-Path -Path $Folder)) {
@@ -225,15 +232,57 @@ function Get-AllTasks {
 
     $TodoPath = "project planning/todo"
     $InProgressPath = "project planning/inprogress"
+    $DevDonePath = "project planning/devdone"
+    $TestingPath = "project planning/testing"
     $DonePath = "project planning/done"
+    $BacklogPath = "project planning/backlog"
 
     $TodoTasks = if (Test-Path $TodoPath) { Get-ChildItem -Path $TodoPath -Filter "TASK-*.md" -ErrorAction SilentlyContinue } else { @() }
     $InProgressTasks = if (Test-Path $InProgressPath) { Get-ChildItem -Path $InProgressPath -Filter "TASK-*.md" -ErrorAction SilentlyContinue } else { @() }
+    $DevDoneTasks = if (Test-Path $DevDonePath) { Get-ChildItem -Path $DevDonePath -Filter "TASK-*.md" -ErrorAction SilentlyContinue } else { @() }
+    $TestingTasks = if (Test-Path $TestingPath) { Get-ChildItem -Path $TestingPath -Filter "TASK-*.md" -ErrorAction SilentlyContinue } else { @() }
     $DoneTasks = if (Test-Path $DonePath) { Get-ChildItem -Path $DonePath -Filter "TASK-*.md" -ErrorAction SilentlyContinue } else { @() }
+    $BacklogTasks = if (Test-Path $BacklogPath) { Get-ChildItem -Path $BacklogPath -Filter "TASK-*.md" -ErrorAction SilentlyContinue } else { @() }
 
     $AllTasks = @()
     $TotalEstimatedHours = 0
     $TotalActualHours = 0
+
+    # Process backlog tasks
+    foreach ($Task in $BacklogTasks) {
+        try {
+            $TaskContent = Get-Content -Path $Task.FullName -Raw -ErrorAction Stop
+            $Metadata = Get-TaskMetadata -Content $TaskContent
+            $Progress = Get-TaskProgress -Content $TaskContent
+            $Dependencies = Get-TaskDependencies -Content $TaskContent
+        }
+        catch {
+            Write-Warning "Could not read task file $($Task.FullName): $($_.Exception.Message)"
+            continue # Skip to next task
+        }
+
+        $TaskInfo = @{
+            ID = $Metadata.ID
+            Title = $Metadata.Title
+            Priority = $Metadata.Priority
+            DueDate = $Metadata.DueDate
+            Status = $TaskStatusBacklog
+            AssignedTo = $Metadata.AssignedTo
+            TaskType = $Metadata.TaskType
+            Sequence = $Metadata.Sequence
+            Tags = $Metadata.Tags
+            Progress = $Progress
+            EstimatedHours = $Metadata.EstimatedHours
+            ActualHours = $Metadata.ActualHours
+            RequiredBy = $Dependencies.RequiredBy -join ", "
+            DependsOn = $Dependencies.DependsOn -join ", "
+            FilePath = $Task.FullName
+        }
+
+        $AllTasks += $TaskInfo
+        $TotalEstimatedHours += $Metadata.EstimatedHours
+        $TotalActualHours += $Metadata.ActualHours
+    }
 
     # Process todo tasks
     foreach ($Task in $TodoTasks) {
@@ -307,6 +356,78 @@ function Get-AllTasks {
         $TotalActualHours += $Metadata.ActualHours
     }
 
+    # Process dev done tasks
+    foreach ($Task in $DevDoneTasks) {
+        try {
+            $TaskContent = Get-Content -Path $Task.FullName -Raw -ErrorAction Stop
+            $Metadata = Get-TaskMetadata -Content $TaskContent
+            $Progress = Get-TaskProgress -Content $TaskContent
+            $Dependencies = Get-TaskDependencies -Content $TaskContent
+        }
+        catch {
+            Write-Warning "Could not read task file $($Task.FullName): $($_.Exception.Message)"
+            continue # Skip to next task
+        }
+
+        $TaskInfo = @{
+            ID = $Metadata.ID
+            Title = $Metadata.Title
+            Priority = $Metadata.Priority
+            DueDate = $Metadata.DueDate
+            Status = $TaskStatusDevDone
+            AssignedTo = $Metadata.AssignedTo
+            TaskType = $Metadata.TaskType
+            Sequence = $Metadata.Sequence
+            Tags = $Metadata.Tags
+            Progress = $Progress
+            EstimatedHours = $Metadata.EstimatedHours
+            ActualHours = $Metadata.ActualHours
+            RequiredBy = $Dependencies.RequiredBy -join ", "
+            DependsOn = $Dependencies.DependsOn -join ", "
+            FilePath = $Task.FullName
+        }
+
+        $AllTasks += $TaskInfo
+        $TotalEstimatedHours += $Metadata.EstimatedHours
+        $TotalActualHours += $Metadata.ActualHours
+    }
+
+    # Process testing tasks
+    foreach ($Task in $TestingTasks) {
+        try {
+            $TaskContent = Get-Content -Path $Task.FullName -Raw -ErrorAction Stop
+            $Metadata = Get-TaskMetadata -Content $TaskContent
+            $Progress = Get-TaskProgress -Content $TaskContent
+            $Dependencies = Get-TaskDependencies -Content $TaskContent
+        }
+        catch {
+            Write-Warning "Could not read task file $($Task.FullName): $($_.Exception.Message)"
+            continue # Skip to next task
+        }
+
+        $TaskInfo = @{
+            ID = $Metadata.ID
+            Title = $Metadata.Title
+            Priority = $Metadata.Priority
+            DueDate = $Metadata.DueDate
+            Status = $TaskStatusTesting
+            AssignedTo = $Metadata.AssignedTo
+            TaskType = $Metadata.TaskType
+            Sequence = $Metadata.Sequence
+            Tags = $Metadata.Tags
+            Progress = $Progress
+            EstimatedHours = $Metadata.EstimatedHours
+            ActualHours = $Metadata.ActualHours
+            RequiredBy = $Dependencies.RequiredBy -join ", "
+            DependsOn = $Dependencies.DependsOn -join ", "
+            FilePath = $Task.FullName
+        }
+
+        $AllTasks += $TaskInfo
+        $TotalEstimatedHours += $Metadata.EstimatedHours
+        $TotalActualHours += $Metadata.ActualHours
+    }
+
     # Process done tasks
     foreach ($Task in $DoneTasks) {
         try {
@@ -363,7 +484,10 @@ function Get-ProjectStats {
     # Clear counters for task statuses
     $TodoCount = 0
     $InProgressCount = 0
+    $DevDoneCount = 0
+    $TestingCount = 0
     $DoneCount = 0
+    $BacklogCount = 0
 
     # Ensure we're using the correct status values
     foreach ($Task in $AllTasks) {
@@ -373,26 +497,41 @@ function Get-ProjectStats {
         elseif ($Task.Status -eq $TaskStatusInProgress) {
             $InProgressCount++
         }
+        elseif ($Task.Status -eq $TaskStatusDevDone) {
+            $DevDoneCount++
+        }
+        elseif ($Task.Status -eq $TaskStatusTesting) {
+            $TestingCount++
+        }
         elseif ($Task.Status -eq $TaskStatusDone) {
             $DoneCount++
+        }
+        elseif ($Task.Status -eq $TaskStatusBacklog) {
+            $BacklogCount++
         }
     }
 
     # Verify the counts add up to the total
-    $TotalStatusCount = $TodoCount + $InProgressCount + $DoneCount
+    $TotalStatusCount = $TodoCount + $InProgressCount + $DevDoneCount + $TestingCount + $DoneCount + $BacklogCount
     if ($TotalStatusCount -ne $TotalTasks) {
         Write-Warning "Task status counts ($TotalStatusCount) don't match total tasks ($TotalTasks). This may indicate a problem with task status values."
-        Write-Warning "Todo: $TodoCount, InProgress: $InProgressCount, Done: $DoneCount"
+        Write-Warning "Todo: $TodoCount, InProgress: $InProgressCount, DevDone: $DevDoneCount, Testing: $TestingCount, Done: $DoneCount, Backlog: $BacklogCount"
 
         # Force recounting by folder location as a fallback
         $TodoPath = "project planning/todo"
         $InProgressPath = "project planning/inprogress"
+        $DevDonePath = "project planning/devdone"
+        $TestingPath = "project planning/testing"
         $DonePath = "project planning/done"
+        $BacklogPath = "project planning/backlog"
 
         $TodoCount = (Get-ChildItem -Path $TodoPath -Filter "TASK-*.md" -ErrorAction SilentlyContinue).Count
         $InProgressCount = (Get-ChildItem -Path $InProgressPath -Filter "TASK-*.md" -ErrorAction SilentlyContinue).Count
+        $DevDoneCount = (Get-ChildItem -Path $DevDonePath -Filter "TASK-*.md" -ErrorAction SilentlyContinue).Count
+        $TestingCount = (Get-ChildItem -Path $TestingPath -Filter "TASK-*.md" -ErrorAction SilentlyContinue).Count
         $DoneCount = (Get-ChildItem -Path $DonePath -Filter "TASK-*.md" -ErrorAction SilentlyContinue).Count
-        $TotalTasks = $TodoCount + $InProgressCount + $DoneCount
+        $BacklogCount = (Get-ChildItem -Path $BacklogPath -Filter "TASK-*.md" -ErrorAction SilentlyContinue).Count
+        $TotalTasks = $TodoCount + $InProgressCount + $DevDoneCount + $TestingCount + $DoneCount + $BacklogCount
     }
 
     # Calculate completion rate correctly
@@ -420,7 +559,10 @@ function Get-ProjectStats {
         TotalTasks = $TotalTasks
         TodoCount = $TodoCount
         InProgressCount = $InProgressCount
+        DevDoneCount = $DevDoneCount
+        TestingCount = $TestingCount
         DoneCount = $DoneCount
+        BacklogCount = $BacklogCount
         CompletionRate = $CompletionRate
         TotalEstimatedHours = $TotalEstimatedHours
         TotalActualHours = $TotalActualHours
@@ -527,14 +669,34 @@ function Update-PlanFile {
     # Ensure we're using the correct values
     $PlanContent = $PlanContent -replace '\{\{TotalTasks\}\}', $ProjectStats.TotalTasks
     $PlanContent = $PlanContent -replace '\{\{DoneCount\}\}', $ProjectStats.DoneCount
+    $PlanContent = $PlanContent -replace '\{\{TestingCount\}\}', $ProjectStats.TestingCount
+    $PlanContent = $PlanContent -replace '\{\{DevDoneCount\}\}', $ProjectStats.DevDoneCount
     $PlanContent = $PlanContent -replace '\{\{InProgressCount\}\}', $ProjectStats.InProgressCount
     $PlanContent = $PlanContent -replace '\{\{TodoCount\}\}', $ProjectStats.TodoCount
+    $PlanContent = $PlanContent -replace '\{\{BacklogCount\}\}', $ProjectStats.BacklogCount
     $PlanContent = $PlanContent -replace '\{\{CompletionRate\}\}', $ProjectStats.CompletionRate
     $PlanContent = $PlanContent -replace '\{\{TotalEstimatedHours\}\}', $ProjectStats.TotalEstimatedHours
     $PlanContent = $PlanContent -replace '\{\{TotalActualHours\}\}', $ProjectStats.TotalActualHours
     $PlanContent = $PlanContent -replace '\{\{CurrentDate\}\}', $CurrentDate
 
     # Kanban Tasks
+    $KanbanBacklogTasks = ""
+    ($AllTasks | Where-Object { $_.Status -eq $TaskStatusBacklog } | Sort-Object -Property Sequence) | ForEach-Object {
+        # Create simple task name for Mermaid Kanban syntax
+        $TaskTitle = $_.Title
+        # Escape special characters that might break Mermaid syntax
+        $TaskTitle = $TaskTitle -replace '[[\](){}]', ''
+        $TaskTitle = $TaskTitle -replace '["]', "'"
+
+        # Format: Simple task name for Mermaid Kanban
+        $FormattedTask = "    $($_.ID): $TaskTitle"
+        $KanbanBacklogTasks += "$FormattedTask`n"
+    }
+    # Ensure it's not null before calling methods
+    if ($null -eq $KanbanBacklogTasks) { $KanbanBacklogTasks = "" }
+    $EscapedKanbanBacklogTasks = $KanbanBacklogTasks.TrimEnd().Replace('$', '$$')
+    $PlanContent = $PlanContent -replace '\{\{KanbanBacklogTasks\}\}', $EscapedKanbanBacklogTasks
+
     $KanbanTodoTasks = ""
     ($AllTasks | Where-Object { $_.Status -eq $TaskStatusTodo } | Sort-Object -Property Sequence) | ForEach-Object {
         # Create simple task name for Mermaid Kanban syntax
@@ -547,6 +709,8 @@ function Update-PlanFile {
         $FormattedTask = "    $($_.ID): $TaskTitle"
         $KanbanTodoTasks += "$FormattedTask`n"
     }
+    # Ensure it's not null before calling methods
+    if ($null -eq $KanbanTodoTasks) { $KanbanTodoTasks = "" }
     $EscapedKanbanTodoTasks = $KanbanTodoTasks.TrimEnd().Replace('$', '$$')
     $PlanContent = $PlanContent -replace '\{\{KanbanTodoTasks\}\}', $EscapedKanbanTodoTasks
 
@@ -562,8 +726,44 @@ function Update-PlanFile {
         $FormattedTask = "    $($_.ID): $TaskTitle"
         $KanbanInProgressTasks += "$FormattedTask`n"
     }
+    # Ensure it's not null before calling methods
+    if ($null -eq $KanbanInProgressTasks) { $KanbanInProgressTasks = "" }
     $EscapedKanbanInProgressTasks = $KanbanInProgressTasks.TrimEnd().Replace('$', '$$')
     $PlanContent = $PlanContent -replace '\{\{KanbanInProgressTasks\}\}', $EscapedKanbanInProgressTasks
+
+    $KanbanDevDoneTasks = ""
+    ($AllTasks | Where-Object { $_.Status -eq $TaskStatusDevDone } | Sort-Object -Property Sequence) | ForEach-Object {
+        # Create simple task name for Mermaid Kanban syntax
+        $TaskTitle = $_.Title
+        # Escape special characters that might break Mermaid syntax
+        $TaskTitle = $TaskTitle -replace '[[\](){}]', ''
+        $TaskTitle = $TaskTitle -replace '["]', "'"
+
+        # Format: Simple task name for Mermaid Kanban
+        $FormattedTask = "    $($_.ID): $TaskTitle"
+        $KanbanDevDoneTasks += "$FormattedTask`n"
+    }
+    # Ensure it's not null before calling methods
+    if ($null -eq $KanbanDevDoneTasks) { $KanbanDevDoneTasks = "" }
+    $EscapedKanbanDevDoneTasks = $KanbanDevDoneTasks.TrimEnd().Replace('$', '$$')
+    $PlanContent = $PlanContent -replace '\{\{KanbanDevDoneTasks\}\}', $EscapedKanbanDevDoneTasks
+
+    $KanbanTestingTasks = ""
+    ($AllTasks | Where-Object { $_.Status -eq $TaskStatusTesting } | Sort-Object -Property Sequence) | ForEach-Object {
+        # Create simple task name for Mermaid Kanban syntax
+        $TaskTitle = $_.Title
+        # Escape special characters that might break Mermaid syntax
+        $TaskTitle = $TaskTitle -replace '[[\](){}]', ''
+        $TaskTitle = $TaskTitle -replace '["]', "'"
+
+        # Format: Simple task name for Mermaid Kanban
+        $FormattedTask = "    $($_.ID): $TaskTitle"
+        $KanbanTestingTasks += "$FormattedTask`n"
+    }
+    # Ensure it's not null before calling methods
+    if ($null -eq $KanbanTestingTasks) { $KanbanTestingTasks = "" }
+    $EscapedKanbanTestingTasks = $KanbanTestingTasks.TrimEnd().Replace('$', '$$')
+    $PlanContent = $PlanContent -replace '\{\{KanbanTestingTasks\}\}', $EscapedKanbanTestingTasks
 
     $KanbanDoneTasks = ""
     ($AllTasks | Where-Object { $_.Status -eq $TaskStatusDone } | Sort-Object -Property Sequence) | ForEach-Object {
@@ -577,6 +777,8 @@ function Update-PlanFile {
         $FormattedTask = "    $($_.ID): $TaskTitle"
         $KanbanDoneTasks += "$FormattedTask`n"
     }
+    # Ensure it's not null before calling methods
+    if ($null -eq $KanbanDoneTasks) { $KanbanDoneTasks = "" }
     $EscapedKanbanDoneTasks = $KanbanDoneTasks.TrimEnd().Replace('$', '$$')
     $PlanContent = $PlanContent -replace '\{\{KanbanDoneTasks\}\}', $EscapedKanbanDoneTasks
 
@@ -1175,6 +1377,96 @@ function Reset-ProjectTasks {
     return ($ErrorCount -eq 0)
 }
 
+# Function to archive done tasks
+function Archive-DoneTasks {
+    param (
+        [switch]$Force
+    )
+
+    # Confirm with user unless Force is specified
+    if (-not $Force -and -not $Silent) {
+        $confirmation = Read-Host "This will move all done tasks to the archive folder. Are you sure? (y/n)"
+        if ($confirmation -ne 'y') {
+            Write-Host "Operation cancelled." -ForegroundColor Yellow
+            return $false
+        }
+    }
+
+    # Initialize all required folders
+    Initialize-RequiredFolders
+
+    # Create archive date folder
+    $ArchivePath = "project planning/archive"
+    $ArchiveDateFolder = Join-Path -Path $ArchivePath -ChildPath (Get-Date -Format "yyyy-MM-dd")
+
+    # Create date-specific archive folder
+    if (-not (Test-Path -Path $ArchiveDateFolder)) {
+        try {
+            New-Item -Path $ArchiveDateFolder -ItemType Directory -Force | Out-Null
+            if (-not $Silent) {
+                Write-Host "Created archive date folder: $ArchiveDateFolder" -ForegroundColor Green
+            }
+        }
+        catch {
+            Write-Error "Failed to create archive date folder: $($_.Exception.Message)"
+            return $false
+        }
+    }
+
+    # Get all done tasks
+    $TaskData = Get-AllTasks
+    $DoneTasks = $TaskData.Tasks | Where-Object { $_.Status -eq $TaskStatusDone }
+
+    if ($DoneTasks.Count -eq 0) {
+        if (-not $Silent) {
+            Write-Host "No done tasks found to archive." -ForegroundColor Yellow
+        }
+        return $true
+    }
+
+    $ArchivedCount = 0
+    $ErrorCount = 0
+
+    # Move all done tasks to archive
+    foreach ($Task in $DoneTasks) {
+        $TaskFile = $Task.FilePath
+        $TaskFileName = Split-Path -Path $TaskFile -Leaf
+        $DestinationFile = Join-Path -Path $ArchiveDateFolder -ChildPath $TaskFileName
+
+        try {
+            # Copy the file to archive
+            Copy-Item -Path $TaskFile -Destination $DestinationFile -Force
+
+            # Delete the original file
+            Remove-Item -Path $TaskFile -Force
+
+            $ArchivedCount++
+        }
+        catch {
+            Write-Error "Failed to archive task $($Task.ID): $($_.Exception.Message)"
+            $ErrorCount++
+        }
+    }
+
+    # Update plan.md to reflect changes
+    try {
+        Update-PlanFile
+    }
+    catch {
+        Write-Error "Failed to update plan.md after archiving tasks: $($_.Exception.Message)"
+    }
+
+    if (-not $Silent) {
+        Write-Host "Archiving complete." -ForegroundColor Green
+        Write-Host "Archived $ArchivedCount done tasks to $ArchiveDateFolder" -ForegroundColor Green
+        if ($ErrorCount -gt 0) {
+            Write-Host "Encountered $ErrorCount errors during archiving." -ForegroundColor Red
+        }
+    }
+
+    return ($ErrorCount -eq 0)
+}
+
 # Function to list tasks
 function Get-TaskList {
     param (
@@ -1189,7 +1481,10 @@ function Get-TaskList {
     $FilteredTasks = switch ($Status.ToLower()) {
         "todo" { $AllTasks | Where-Object { $_.Status -eq $TaskStatusTodo } }
         "inprogress" { $AllTasks | Where-Object { $_.Status -eq $TaskStatusInProgress } }
+        "devdone" { $AllTasks | Where-Object { $_.Status -eq $TaskStatusDevDone } }
+        "testing" { $AllTasks | Where-Object { $_.Status -eq $TaskStatusTesting } }
         "done" { $AllTasks | Where-Object { $_.Status -eq $TaskStatusDone } }
+        "backlog" { $AllTasks | Where-Object { $_.Status -eq $TaskStatusBacklog } }
         "open" { $AllTasks | Where-Object { $_.Status -ne $TaskStatusDone } }
         default { $AllTasks }
     }
@@ -1212,7 +1507,7 @@ function Set-TaskStatus {
         [string]$TaskID,
 
         [Parameter(Mandatory=$true)]
-        [ValidateSet("Todo", "InProgress", "Done")]
+        [ValidateSet("Todo", "InProgress", "DevDone", "Testing", "Done", "Backlog")]
         [string]$NewStatus
     )
 
@@ -1222,11 +1517,14 @@ function Set-TaskStatus {
     # Define folder paths
     $TodoPath = "project planning/todo"
     $InProgressPath = "project planning/inprogress"
+    $DevDonePath = "project planning/devdone"
+    $TestingPath = "project planning/testing"
     $DonePath = "project planning/done"
+    $BacklogPath = "project planning/backlog"
 
     # Find the task file across all folders
     $TaskFile = $null
-    $AllFolders = @($TodoPath, $InProgressPath, $DonePath)
+    $AllFolders = @($TodoPath, $InProgressPath, $DevDonePath, $TestingPath, $DonePath, $BacklogPath)
 
     foreach ($Folder in $AllFolders) {
         $PotentialFile = Get-ChildItem -Path $Folder -Filter "$TaskID*.md" -ErrorAction SilentlyContinue
@@ -1246,13 +1544,16 @@ function Set-TaskStatus {
         $TaskContent = Get-Content -Path $TaskFile.FullName -Raw -ErrorAction Stop
 
         # Update the status in the content
-        $UpdatedContent = $TaskContent -replace "- \*\*Status:\*\* (?:Todo|InProgress|Done)", "- **Status:** $NewStatus"
+        $UpdatedContent = $TaskContent -replace "- \*\*Status:\*\* (?:Todo|InProgress|DevDone|Testing|Done|Backlog)", "- **Status:** $NewStatus"
 
         # Determine the target folder based on the new status
         $TargetFolder = switch ($NewStatus) {
             "Todo" { $TodoPath }
             "InProgress" { $InProgressPath }
+            "DevDone" { $DevDonePath }
+            "Testing" { $TestingPath }
             "Done" { $DonePath }
+            "Backlog" { $BacklogPath }
         }
 
         # Create the target path
@@ -1287,7 +1588,7 @@ function Set-TaskStatus {
 # Function to display task selection menu and update status
 function Update-TaskMenu {
     param (
-        [ValidateSet("Todo", "InProgress", "Done")]
+        [ValidateSet("Todo", "InProgress", "DevDone", "Testing", "Done", "Backlog")]
         [string]$TargetStatus
     )
 
@@ -1311,7 +1612,10 @@ function Update-TaskMenu {
         # Skip tasks that are already in the target status
         if (($TargetStatus -eq "Todo" -and $Task.Status -eq $TaskStatusTodo) -or
             ($TargetStatus -eq "InProgress" -and $Task.Status -eq $TaskStatusInProgress) -or
-            ($TargetStatus -eq "Done" -and $Task.Status -eq $TaskStatusDone)) {
+            ($TargetStatus -eq "DevDone" -and $Task.Status -eq $TaskStatusDevDone) -or
+            ($TargetStatus -eq "Testing" -and $Task.Status -eq $TaskStatusTesting) -or
+            ($TargetStatus -eq "Done" -and $Task.Status -eq $TaskStatusDone) -or
+            ($TargetStatus -eq "Backlog" -and $Task.Status -eq $TaskStatusBacklog)) {
             continue
         }
 
@@ -1376,7 +1680,10 @@ function Show-TaskList {
     $TaskStatusCounts = @{
         "$TaskStatusTodo" = 0
         "$TaskStatusInProgress" = 0
+        "$TaskStatusDevDone" = 0
+        "$TaskStatusTesting" = 0
         "$TaskStatusDone" = 0
+        "$TaskStatusBacklog" = 0
         "Other" = 0
     }
 
@@ -1388,8 +1695,17 @@ function Show-TaskList {
         elseif ($Task.Status -eq $TaskStatusInProgress) {
             $TaskStatusCounts["$TaskStatusInProgress"]++
         }
+        elseif ($Task.Status -eq $TaskStatusDevDone) {
+            $TaskStatusCounts["$TaskStatusDevDone"]++
+        }
+        elseif ($Task.Status -eq $TaskStatusTesting) {
+            $TaskStatusCounts["$TaskStatusTesting"]++
+        }
         elseif ($Task.Status -eq $TaskStatusDone) {
             $TaskStatusCounts["$TaskStatusDone"]++
+        }
+        elseif ($Task.Status -eq $TaskStatusBacklog) {
+            $TaskStatusCounts["$TaskStatusBacklog"]++
         }
         else {
             $TaskStatusCounts["Other"]++
@@ -1398,7 +1714,10 @@ function Show-TaskList {
         $StatusIcon = switch ($Task.Status) {
             $TaskStatusTodo { "[T]" }
             $TaskStatusInProgress { "[I]" }
+            $TaskStatusDevDone { "[DD]" }
+            $TaskStatusTesting { "[TS]" }
             $TaskStatusDone { "[D]" }
+            $TaskStatusBacklog { "[B]" }
             default { "[?]" }
         }
 
@@ -1420,7 +1739,27 @@ function Show-TaskList {
 
     # Display summary
     Write-Host "Total: $($Tasks.Count) tasks" -ForegroundColor Cyan
-    Write-Host "Todo: $($TaskStatusCounts["$TaskStatusTodo"]) | In Progress: $($TaskStatusCounts["$TaskStatusInProgress"]) | Done: $($TaskStatusCounts["$TaskStatusDone"])" -ForegroundColor Cyan
+    if ($TaskStatusCounts["$TaskStatusTodo"] -gt 0) {
+        Write-Host "  Todo: $($TaskStatusCounts["$TaskStatusTodo"])" -ForegroundColor White
+    }
+    if ($TaskStatusCounts["$TaskStatusBacklog"] -gt 0) {
+        Write-Host "  Backlog: $($TaskStatusCounts["$TaskStatusBacklog"])" -ForegroundColor Blue
+    }
+    if ($TaskStatusCounts["$TaskStatusInProgress"] -gt 0) {
+        Write-Host "  In Progress: $($TaskStatusCounts["$TaskStatusInProgress"])" -ForegroundColor Yellow
+    }
+    if ($TaskStatusCounts["$TaskStatusDevDone"] -gt 0) {
+        Write-Host "  Dev Done: $($TaskStatusCounts["$TaskStatusDevDone"])" -ForegroundColor Cyan
+    }
+    if ($TaskStatusCounts["$TaskStatusTesting"] -gt 0) {
+        Write-Host "  Testing: $($TaskStatusCounts["$TaskStatusTesting"])" -ForegroundColor Magenta
+    }
+    if ($TaskStatusCounts["$TaskStatusDone"] -gt 0) {
+        Write-Host "  Done: $($TaskStatusCounts["$TaskStatusDone"])" -ForegroundColor Green
+    }
+    if ($TaskStatusCounts["Other"] -gt 0) {
+        Write-Host "  Other: $($TaskStatusCounts["Other"])" -ForegroundColor Gray
+    }
 }
 
 # Function to show interactive menu
@@ -1436,6 +1775,7 @@ function Show-Menu {
         Write-Host "4: AI Assistant" -ForegroundColor Magenta
     }
     
+    Write-Host "5: Reset project (archive all tasks)" -ForegroundColor Red
     Write-Host "0: Exit" -ForegroundColor White
     Write-Host "=======================================" -ForegroundColor Cyan
 }
@@ -1470,7 +1810,10 @@ function Show-TasksMenu {
     Write-Host "5: Mark task as done" -ForegroundColor Green
     Write-Host "6: Move task to in-progress" -ForegroundColor Yellow
     Write-Host "7: Move task to todo" -ForegroundColor Blue
-    Write-Host "8: Reset project (archive all tasks)" -ForegroundColor Red
+    Write-Host "8: Move task to backlog" -ForegroundColor Magenta
+    Write-Host "9: Move task to dev-done" -ForegroundColor Cyan
+    Write-Host "10: Move task to testing" -ForegroundColor Magenta
+    Write-Host "11: Archive done tasks" -ForegroundColor Yellow
     Write-Host "0: Back to main menu" -ForegroundColor White
     Write-Host "=========================" -ForegroundColor Cyan
 }
@@ -1510,7 +1853,7 @@ $AIFunctionsAvailable = $null -ne (Get-Item -Path "Function:Set-OpenRouterSettin
 # No need to load settings here, they will be loaded on demand when needed
 
 # Check if any action-specific switch is present for direct execution
-$IsActionSwitchPresent = $UpdatePlan.IsPresent -or $GenerateReport.IsPresent -or $ListTasks.IsPresent -or $ResetTasks.IsPresent -or $GenerateComprehensiveReport.IsPresent -or $ConfigureAI.IsPresent -or $GenerateAIDocumentation.IsPresent -or $GetAITaskSuggestions.IsPresent
+$IsActionSwitchPresent = $UpdatePlan.IsPresent -or $GenerateReport.IsPresent -or $ListTasks.IsPresent -or $ResetTasks.IsPresent -or $ArchiveDoneTasks.IsPresent -or $GenerateComprehensiveReport.IsPresent -or $ConfigureAI.IsPresent -or $GenerateAIDocumentation.IsPresent -or $GetAITaskSuggestions.IsPresent
 
 if ($IsActionSwitchPresent) {
     # Direct action mode (verbosity controlled by $Silent switch within functions)
@@ -1530,6 +1873,9 @@ if ($IsActionSwitchPresent) {
     }
     if ($ResetTasks.IsPresent) {
         Reset-ProjectTasks -Force:$true # Force non-interactive reset for direct action
+    }
+    if ($ArchiveDoneTasks.IsPresent) {
+        Archive-DoneTasks -Force:$true # Force non-interactive archive for direct action
     }
     
     # Handle AI-related command-line parameters if the functions are available
@@ -1600,15 +1946,21 @@ while (-not $exitLoop) {
                         Write-Host "Select status to filter by:" -ForegroundColor Cyan
                         Write-Host "1: Todo" -ForegroundColor White
                         Write-Host "2: In Progress" -ForegroundColor White
-                        Write-Host "3: Done" -ForegroundColor White
-                        Write-Host "4: All" -ForegroundColor White
+                        Write-Host "3: Dev Done" -ForegroundColor Cyan
+                        Write-Host "4: Testing" -ForegroundColor Magenta
+                        Write-Host "5: Done" -ForegroundColor Green
+                        Write-Host "6: Backlog" -ForegroundColor Blue
+                        Write-Host "7: All" -ForegroundColor White
 
                         $statusChoiceInteractive = Read-Host "Enter your choice"
                         $statusToFilterInteractive = switch ($statusChoiceInteractive) {
                             "1" { "todo" }
                             "2" { "inprogress" }
-                            "3" { "done" }
-                            "4" { "all" }
+                            "3" { "devdone" }
+                            "4" { "testing" }
+                            "5" { "done" }
+                            "6" { "backlog" }
+                            "7" { "all" }
                             default { "all" }
                         }
 
@@ -1637,7 +1989,19 @@ while (-not $exitLoop) {
                         Update-TaskMenu -TargetStatus "Todo"
                     }
                     "8" {
-                        Reset-ProjectTasks # This will prompt if -Force is not used, which is fine for interactive
+                        # Move task to backlog
+                        Update-TaskMenu -TargetStatus "Backlog"
+                    }
+                    "9" {
+                        # Move task to dev-done
+                        Update-TaskMenu -TargetStatus "DevDone"
+                    }
+                    "10" {
+                        # Move task to testing
+                        Update-TaskMenu -TargetStatus "Testing"
+                    }
+                    "11" {
+                        Archive-DoneTasks # This will prompt if -Force is not used, which is fine for interactive
                         Show-CountdownTimer -Message "Returning to tasks menu"
                     }
                     "0" {
@@ -1713,6 +2077,10 @@ while (-not $exitLoop) {
                 Start-Sleep -Seconds 3 # Show error message for a bit longer
             }
         }
+        "5" {
+            Reset-ProjectTasks
+            Show-CountdownTimer -Message "Returning to main menu"
+        }
         "0" {
             $exitLoop = $true
         }
@@ -1722,3 +2090,5 @@ while (-not $exitLoop) {
         }
     }
 }
+
+
